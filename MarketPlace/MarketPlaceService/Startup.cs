@@ -33,6 +33,14 @@ namespace MarketPlaceService
             // and using MarketPlaceService.Data;
             services.AddDbContext<MarketPlaceContext>(opt => opt.UseInMemoryDatabase());
 
+            services.AddCors(options =>
+                options.AddPolicy("default", policy =>
+                    policy.WithOrigins("http://localhost:5001")
+                            .AllowAnyHeader()
+                            .AllowAnyMethod()
+                )
+            );
+
             // Add framework services.
             services.AddMvc();
 
@@ -45,6 +53,8 @@ namespace MarketPlaceService
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
+
+            app.UseCors("default");
 
             app.UseMvc();
         }
