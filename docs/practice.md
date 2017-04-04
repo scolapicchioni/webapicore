@@ -1,378 +1,369 @@
-# Lab 01 - The Service
+# Lab 02 - The Javascript Client
 
-Time to create our first project.
-We are going to follow (more or less) [this tutorial](https://docs.microsoft.com/en-us/aspnet/core/tutorials/first-web-api), changing the model to our needs.
-
-## Building Your First Web API with ASP.NET Core MVC and Visual Studio
-
-Here is the API that you'll create:
-
-| API                       | Description                | Request body           | Response body     |
-| ------------------------- | -------------------------- | ---------------------- | ----------------- |
-| GET /api/products	        | Get all products   	     | None	                  | Array of products |
-| GET /api/products/{id}    | Get a product by ID        | None                   | Product           |
-| POST /api/products        | Add a new product          | Product                | Product           |
-| PUT /api/products/{id}    | Update an existing product | Product                |                   |	
-| DELETE /api/products/{id} | Delete a product           | None. No request body- | None              |
-
-The client submits a request and receives a response from the application. Within the application we find the controller, the model, and the data access layer. The request comes into the application's controller, and read/write operations occur between the controller and the data access layer. The model is serialized and returned to the client in the response.
-
-The client is whatever consumes the web API (browser, mobile app, and so forth). We aren't writing a client in this tutorial. We'll use Postman to test the app.
-
-A model is an object that represents the data in your application. In this case, the only model is a Product item. Models are represented as simple C# classes (POCOs).
-
-A controller is an object that handles HTTP requests and creates the HTTP response. This app will have a single controller.
-
-To keep the tutorial simple, the app doesn't use a persistent database. Instead, it stores Product items in an in-memory database.
+Time to create our second project. We will focus on a JavaScript DataLayer that will communicate with our previous project. We will not build the user interface, yet. We'll do that in the following project.
+In this lab we're going to use the *fetch api*. We will change that in a following project by using the Swagger Client.
 
 ### Create the project
 
-From Visual Studio, select File menu, > New > Project.
+From the File menu, select Add > New Project.
 
-Select the ASP.NET Core Web Application (.NET Core) project template. Name the Solution Marketplace. Name the Project MarketPlaceService and select OK.
+Select the ASP.NET Core Web Application (.NET Core) project template. 
+Name the project **JavaScriptClient**, clear Host in the cloud, and tap OK.
 
-In the New ASP.NET Core Web Application (.NET Core) - MarketPlaceService dialog, select the Web API template. Select OK. Do not select Enable Docker Support.
+In the New ASP.NET Core Web Application (.NET Core) - JavaScriptClient dialog, 
+select the 1.1 Empty template. Do not check Enable Docker Support. Tap OK.
 
-### Add support for Entity Framework Core
+### Setup the ports of the projects
 
-Install the Entity Framework Core InMemory database provider. This database provider allows Entity Framework Core to be used with an in-memory database.
+Now that we have two projects, we want to make sure that both can start and that they can communicate with each other. Right now, Visual Studio is configured to start Internet Information Server Express on a randomly assigned port. Let's configure them to use port 5000 and 5001.
 
-Edit the MarketPlaceService.csproj file. In Solution Explorer, right-click the project. Select Edit MarketPlaceService.csproj. In the ItemGroup element, add the highlighted PackageReference:
+### Configure MarketPlaceService to start from port 5000 
 
+On the Solution Explorer, right click the MarketPlaceService project, select Properties.
+In the Debug tab of the MarketPlaceService Properties window, change the App Url to ```http://localhost:5000/```
 
-```xml
-  <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="1.1.1" />
-```
+### Configure JavaScriptClient to start from port 5001
 
-### Add a model class
+On the Solution Explorer, right click the MarketPlaceService project, select Properties.
+In the Debug tab of the JavaScriptClient window, change the App Url to ```http://localhost:5001/```
 
-A model is an object that represents the data in your application. In this case, the only model is a Product item.
+In the JavaScriptClient project, open the Program.cs file.
 
-Add a folder named "Models". In Solution Explorer, right-click the project. Select Add > New Folder. Name the folder Models.
-
-Note: You can put model classes anywhere in your project, but the Models folder is used by convention.
-
-Add a Product class. Right-click the Models folder and select Add > Class. Name the class Product and select Add.
-
-Replace the generated code with:
+Replace the content with:
 
 ```cs
-namespace MarketPlaceService.Models {
-    public class Product {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Description { get; set; }
-        public decimal Price { get; set; }
+using System.IO;
+using Microsoft.AspNetCore.Hosting;
+
+namespace JavaScriptClient {
+    public class Program {
+        public static void Main(string[] args) {
+            var host = new WebHostBuilder()
+                .UseKestrel()
+                .UseUrls("http://localhost:5001")
+                .UseContentRoot(Directory.GetCurrentDirectory())
+                .UseIISIntegration()
+                .UseStartup<Startup>()
+                .UseApplicationInsights()
+                .Build();
+
+            host.Run();
+        }
     }
 }
 ```
 
-### Create the database context
+### Add an html page
 
-The database context is the main class that coordinates Entity Framework functionality for a given data model. You create this class by deriving from the Microsoft.EntityFrameworkCore.DbContext class
+In the Solution Explorer, right click the wwwroot folder of the JavascriptClient project, select Add -> New Item.
 
-Add a folder named "Data". Add a MarketPlaceContext class. Right-click the Models folder and select Add > Class. Name the class MarketPlaceContext and select Add.
+Under ASP.NET Core -> Web -> Content, select HTML Page.
+Under Name, type ```index.html``` and click Add.
 
-```cs
-using MarketPlaceService.Models;
-using Microsoft.EntityFrameworkCore;
+### Configure the middleware to serve static files
 
-namespace MarketPlaceService.Data {
-    public class MarketPlaceContext : DbContext {
-        public DbSet<Product> Products { get; set; }
-
-        public MarketPlaceContext(DbContextOptions<MarketPlaceContext> options) : base(options) { }
-    }
-}
-```
-
-### Add a repository class
-
-A repository is an object that encapsulates the data layer. The repository contains logic for retrieving and mapping data to an entity model. Create the repository code in the Data folder
-
-Defining a repository interface named IProductsRepository. Use the interface template (Add New Item -> Interface).
+Right now, if we right click on the JavaScript project in the Solution Explorer, we select Debug -> Start New Instance and we try to navigate to ```http://localhost:5001/index.html``` we get ```Hello World``` as a response instead of the content of our page. This is because the only middleware configured in the Kestrel pipeline always respond with that string, no matter which address we request.
+Let's change that.
+We need to add a new package containing the middleware that can serve static files.
+To do that:
+- On the Solution Explorer, right click JavaScript Client -> Dependencies -> Manage Nu Get Packages
+- In the NuGet Window, click on the tab Browse
+- In the textbox, type ```Microsoft.AspNetCore.StaticFiles```
+- When the package is found, click on Install
+- On the Solution Explorer, right click on JavaScriptClient -> Startup.s
+- Replace the content with
 
 ```cs
-using MarketPlaceService.Models;
-using System.Collections.Generic;
-
-namespace MarketPlaceService.Data {
-    public interface IProductsRepository {
-        void Add(Product product);
-        IEnumerable<Product> GetAll();
-        Product Find(int id);
-        Product Remove(int id);
-        void Update(Product product);
-    }
-}
-```
-
-This interface defines basic CRUD operations.
-
-### Add a ProductsRepository class that implements IProductsRepository:
-
-```cs
-using MarketPlaceService.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
-namespace MarketPlaceService.Data {
-    public class ProductsRepository : IProductsRepository {
-        private MarketPlaceContext _context;
-        public ProductsRepository(MarketPlaceContext context) {
-            _context = context;
-            Add(new Product { Name = "Product 1", Description = "First Sample Product", Price = 1234 });
+namespace JavaScriptClient {
+    public class Startup {
+        // This method gets called by the runtime. Use this method to add services to the container.
+        // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
+        public void ConfigureServices(IServiceCollection services) {
         }
 
-        public void Add(Product product) {
-            _context.Products.Add(product);
-            _context.SaveChanges();
-        }
+        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory) {
+            loggerFactory.AddConsole();
 
-        public Product Find(int id) {
-            return _context.Products.FirstOrDefault(p => p.Id == id);
-        }
+            if (env.IsDevelopment()) {
+                app.UseDeveloperExceptionPage();
+            }
 
-        public IEnumerable<Product> GetAll() {
-            return _context.Products.ToList();
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
         }
+    }
+}
+``` 
 
-        public Product Remove(int id) {
-            var entity = _context.Products.First(p => p.Id == id);
-            _context.Products.Remove(entity);
-            _context.SaveChanges();
-            return entity;
-        }
+Right click on the JavaScript project in the Solution Explorer, select Debug -> Start New Instance and navigate to ```http://localhost:5001```. You should now get our empty index.html page.
 
-        public void Update(Product product) {
-            _context.Products.Update(product);
-            _context.SaveChanges();
-        }
+### Add DataLayer.js
+
+In the Solution Explorer, right click the wwwroot folder of the JavascriptClient project, select Add -> New Folder.
+Name the Folder **js**
+
+In the Solution Explorer, right click the js folder under the wwwroot folder of the JavascriptClient project, select Add -> New Item.
+
+Under ASP.NET Core -> Web -> Script, select JavaScript file.
+Under Name, type ```datalayer.js``` and click Add.
+
+### Get Products
+
+We're going to create a DataLayer class with the CRUD methods that invoke the server and parse the response.
+Let's start with a GetAllProducts. We're going to use the fetch API for now.
+
+- Create a class DataLayer 
+- Add a constructor that initializes a serviceUrl property with the ```"http://localhost:5000/api/products"``` address
+- Add a getAllProducts method that returns the result of a fetch method invoking this.serviceUrl and then the result of the response.json() method
+
+```js
+class DataLayer {
+    constructor() {
+        this.serviceUrl = "http://localhost:5000/api/products";
+    }
+    getAllProducts() {
+        return fetch(this.serviceUrl).then(function (response) {
+            return response.json();
+        });
     }
 }
 ```
 
-Build the app to verify you don't have any compiler errors.
+- At the of the file, let's test the DataLayer by making an instance of it, calling the getAllProducts and then logging the result to the console
 
-### Register the repository
+```js
+const dl = new DataLayer();
 
-By defining a repository interface, we can decouple the repository class from the MVC controller that uses it. Instead of instantiating a ProductsRepository inside the controller we will inject an IProductsRepository using the built-in support in ASP.NET Core for dependency injection.
+dl.getAllProducts()
+    .then(console.log);
+```  
 
-This approach makes it easier to unit test your controllers. Unit tests should inject a mock or stub version of IProductsRepository. That way, the test narrowly targets the controller logic and not the data access layer.
+### Add the datalayer to index.html
 
-In order to inject the repository into the controller, we need to register it with the DI container. Open the Startup.cs file.
+- Open the index.html file
+- Drag the datalayer.js file into the code pane of the index.html, after the title tag, before the end of the head node. Alternatively, you can replace the content of index.html with
 
-In the ConfigureServices method, add the highlighted code:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <script src="js/datalayer.js"></script>
+</head>
+<body>
+
+</body>
+</html>
+``` 
+
+### Test the application
+
+Run the application by pressing F5, then right click on the Solution Explorer -> JavaScriptClient -> Debug -> Start New Instance
+
+Now press F12 in your browser to open the Developer Tools and inspect the Network Traffic (refresh if you don't see anything).
+You should see this message
+
+```
+Fetch API cannot load http://localhost:5000/. No 'Access-Control-Allow-Origin' header is present on the requested resource. Origin 'http://localhost:5001' is therefore not allowed access. The response had HTTP status code 404. If an opaque response serves your needs, set the request's mode to 'no-cors' to fetch the resource with CORS disabled.
+```
+
+This is because the Service application does not accept incoming requests from the JavaScript client. 
+Let's fix this.
+
+### Add the Cors NuGet Package
+
+To setup CORS for your MarketPlaceService application, add the Microsoft.AspNetCore.Cors package to your project.
+
+- In the Solution Explorer, right click on MarketPlaceService -> Dependencies -> Manage NuGetPackages.
+- Click on the tab Browse
+- Type ```Microsoft.AspNetCore.Cors```
+- Click Add
+
+### Register and configure the CORS services in Startup.cs:
+
+In the Solution Explorer, right click on MarketPlaceService -> Startup.cs. Replace the content of the ConfigureServices method with this
 
 ```cs
-public void ConfigureServices(IServiceCollection services)
-{
+public void ConfigureServices(IServiceCollection services) {
     // requires using Microsoft.EntityFrameworkCore;
-    // and using MarketPlaceService.Data;
     services.AddDbContext<MarketPlaceContext>(opt => opt.UseInMemoryDatabase());
+
+    services.AddCors(options =>
+        options.AddPolicy("default", policy =>
+            policy.WithOrigins("http://localhost:5001")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+        )
+    );
 
     // Add framework services.
     services.AddMvc();
-    
-    // requires using MarketPlaceService.Models;
+
     services.AddSingleton<IProductsRepository, ProductsRepository>();
 }
 ```
 
-### Add a controller
+### Add CORS middleware
 
-In Solution Explorer, right-click the Controllers folder. Select Add > New Item. In the Add New Item dialog, select the Web API Controller Class template. Name the class ProductsController. Select Minimal Dependencies
-
-Replace the generated code with the following:
+Replace the content of the Configure method with this:
 
 ```cs
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Mvc;
-using MarketPlaceService.Models;
-using MarketPlaceService.Data;
+public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory) {
+    loggerFactory.AddConsole(Configuration.GetSection("Logging"));
+    loggerFactory.AddDebug();
 
-namespace MarketPlaceService.Controllers {
-    [Route("api/[controller]")]
-    public class ProductsController : Controller {
-        private readonly IProductsRepository _ProductsRepository;
+    app.UseCors("default");
 
-        public ProductsController(IProductsRepository ProductsRepository) {
-            _ProductsRepository = ProductsRepository;
-        }
-    }
+    app.UseMvc();
 }
 ```
 
-This defines an empty controller class. In the next sections, we'll add methods to implement the API.
+### Test the application
 
-### Getting Product items
+Run the application by pressing F5, then right click on the Solution Explorer -> JavaScriptClient -> Debug -> Start New Instance
 
-To get Product items, add the following methods to the ProductsController class
+Now press F12 in your browser to open the Developer Tools and inspect the Console (refresh if you don't see anything). You should see an array with one product object.
 
-```cs
-[HttpGet]
-public IEnumerable<Product> GetAll() {
-    return _ProductsRepository.GetAll();
+### Add getProductById method
+
+In the datalayer.js file, add a new method getProductById in the DataLayer class. The method should invoke the fetch method passing the this.serviceUrl + id as an address.
+
+```js
+getProductById(id) {
+    return fetch(this.serviceUrl + "/" + id).then(function (response) {
+        return response.json();
+    });
 }
+``` 
 
-[HttpGet("{id}", Name = "GetProduct")]
-public IActionResult GetById(int id) {
-    var item = _ProductsRepository.Find(id);
-    if (item == null)
-    {
-        return NotFound();
-    }
-    return new ObjectResult(item);
+Now let's see if it works by adding the new invocation at the end of our file:
+
+```js
+const dl = new DataLayer();
+
+dl.getAllProducts()
+    .then(console.log)
+    .then(() => dl.getProductById(1))
+    .then(console.log);
+```
+
+Refresh the page and check that the console shows the product.
+
+### Add insertProduct method
+
+In the datalayer.js file, add a new method insertProduct in the DataLayer class. The method should invoke the fetch method passing the this.serviceUrl as an address but also adding an object to configure the POST http  method, the content of the body and the ContentType header.
+
+```js
+insertProduct(product) {
+    return fetch(this.serviceUrl, {
+        method: 'POST',
+        body: JSON.stringify(product),
+        headers: new Headers({
+            'Content-Type': 'application/json'
+        })
+    }).then(function (response) {
+        return response.json();
+    });
 }
+``` 
+
+Now let's test it by adding the invocation at the end of our file:
+
+```js
+const dl = new DataLayer();
+
+dl.getAllProducts()
+    .then(console.log)
+    .then(() => dl.getProductById(1))
+    .then(console.log)
+    .then(() => dl.insertProduct({ id: 0, name: "New Product", description: "Added through javascript", price: 9876 }))
+    .then(console.log);
 ```
 
-These methods implement the two GET methods:
+Refresh the page and check that the console shows the new product (with a different id value).
 
-- GET /api/product
-- GET /api/product/{id}
+### Add updateProduct method
 
-Here is an example HTTP response for the GetAll method:
+In the datalayer.js file, add a new method updateProduct in the DataLayer class. The method should invoke the fetch method passing the this.serviceUrl + an id as an address, but also adding an object to configure the PUT http  method, the content of the body and the ContentType header.
 
-```
-HTTP/1.1 200 OK
-   Content-Type: application/json; charset=utf-8
-   Server: Microsoft-IIS/10.0
-   Date: Thu, 18 Jun 2015 20:51:10 GMT
-   Content-Length: 82
-
-   [{"Id":1,"Name":"Product 1","Description":"First Sample Product", "Price" : 1234}]
-```
-
-Later in the tutorial I'll show how you can view the HTTP response using Postman.
-
-### Routing and URL paths
-
-The [HttpGet] attribute specifies an HTTP GET method. The URL path for each method is constructed as follows:
-
-Take the template string in the controller's route attribute, [Route("api/[controller]")]
-Replace "[controller]" with the name of the controller, which is the controller class name minus the "Controller" suffix. For this sample, the controller class name is ProductsController and the root name is "products". ASP.NET Core routing is not case sensitive.
-If the [HttpGet] attribute has a template string, append that to the path. This sample doesn't use a template string.
-In the GetById method:
-
-```cs
-[HttpGet("{id}", Name = "GetProduct")]
-public IActionResult GetById(string id)
-```
-
-"{id}" is a placeholder variable for the ID of the product item. When GetById is invoked, it assigns the value of "{id}" in the URL to the method's id parameter.
-
-Name = "GetProduct" creates a named route and allows you to link to this route in an HTTP Response. I'll explain it with an example later. See Routing to Controller Actions for detailed information.
-
-Return values
-
-The GetAll method returns an IEnumerable. MVC automatically serializes the object to JSON and writes the JSON into the body of the response message. The response code for this method is 200, assuming there are no unhandled exceptions. (Unhandled exceptions are translated into 5xx errors.)
-
-In contrast, the GetById method returns the more general IActionResult type, which represents a wide range of return types. GetById has two different return types:
-
-If no item matches the requested ID, the method returns a 404 error. This is done by returning NotFound.
-
-Otherwise, the method returns 200 with a JSON response body. This is done by returning an ObjectResult
-
-Launch the app
-
-In Visual Studio, press CTRL+F5 to launch the app. Visual Studio launches a browser and navigates to http://localhost:port/api/values, where port is a randomly chosen port number. If you're using Chrome, Edge or Firefox, the data will be displayed. If you're using IE, IE will prompt to you open or save the values.json file. Navigate to the product controller we just created http://localhost:port/api/products
-
-### Implement the other CRUD operations
-
-We'll add Create, Update, and Delete methods to the controller. These are variations on a theme, so I'll just show the code and highlight the main differences. Build the project after adding or changing code.
-
-Create
-
-```cs
-[HttpPost]
-public IActionResult Create([FromBody] Product product) {
-    if (product == null) {
-        return BadRequest();
-    }
-
-    _ProductsRepository.Add(product);
-
-    return CreatedAtRoute("GetProduct", new { id = product.Id }, product);
+```js
+updateProduct(id, product) {
+    return fetch(this.serviceUrl + "/" + id, {
+        method: 'PUT',
+        body: JSON.stringify(product),
+        headers: new Headers({
+            'Content-Type': 'application/json'
+        })
+    });
 }
+``` 
+
+Now let's test it by adding the invocation at the end of our file:
+
+```js
+const dl = new DataLayer();
+
+dl.getAllProducts()
+    .then(console.log)
+    .then(() => dl.getProductById(1))
+    .then(console.log)
+    .then(() => dl.insertProduct({ id: 0, name: "New Product", description: "Added through javascript", price: 9876 }))
+    .then(console.log)
+    .then(() => dl.updateProduct(1, { id: 1, name: "Modified Product", description: "Modified through javascript", price: 9876 }))
+    .then(() => dl.getProductById(1))
+    .then(console.log);
 ```
 
-This is an HTTP POST method, indicated by the [HttpPost] attribute. The [FromBody] attribute tells MVC to get the value of the Product item from the body of the HTTP request.
+Refresh the page and check that the console shows the modified product.
 
-The CreatedAtRoute method returns a 201 response, which is the standard response for an HTTP POST method that creates a new resource on the server. CreatedAtRoute also adds a Location header to the response. The Location header specifies the URI of the newly created Product item. See 10.2.2 201 Created.
+### Add deleteProduct method
 
-Use Postman to send a Create request
+In the datalayer.js file, add a new method deleteProduct in the DataLayer class. The method should invoke the fetch method passing the this.serviceUrl + an id as an address, but also adding an object to configure the DELETE http  method.
 
-- Set the HTTP method to POST
-- Select the Body radio button
-- Select the raw radio button
-- Set the type to JSON
-- In the key-value editor, enter a product item such as
-
-```json
-{
-  "name":"Product 2",
-  "Description":"New Product",
-  "Price":555
+```js
+deleteProduct(id) {
+    return fetch(this.serviceUrl + "/" + id, {
+        method: 'DELETE'
+    });
 }
 ```
 
-Select Send
+Now let's test it by adding the invocation at the end of our file:
 
-Select the Headers tab in the lower pane and copy the Location header:
+```js
+const dl = new DataLayer();
 
-You can use the Location header URI to access the resource you just created. Recall the GetById method created the "GetProduct" named route:
-
-```cs 
-[HttpGet("{id}", Name = "GetProduct")]
-public IActionResult GetById(string id)
+dl.getAllProducts()
+    .then(console.log)
+    .then(() => dl.getProductById(1))
+    .then(console.log)
+    .then(() => dl.insertProduct({ id: 0, name: "New Product", description: "Added through javascript", price: 9876 }))
+    .then(console.log)
+    .then(() => dl.updateProduct(1, { id: 1, name: "Modified Product", description: "Modified through javascript", price: 9876 }))
+    .then(() => dl.getProductById(1))
+    .then(console.log)
+    .then(() => dl.deleteProduct(1))
+    .then(console.log);
 ```
 
-Update
-
-```cs
-[HttpPut("{id}")]
-public IActionResult Update(int id, [FromBody] Product product) {
-    if (product == null || product.Id != id) {
-        return BadRequest();
-    }
-
-    var original = _ProductsRepository.Find(id);
-    if (original == null) {
-        return NotFound();
-    }
-
-    original.Name = product.Name;
-    original.Description = product.Description;
-    original.Price = product.Price;
-
-    _ProductsRepository.Update(original);
-    return new NoContentResult();
-}
-```
-
-Update is similar to Create, but uses HTTP PUT. The response is 204 (No Content). According to the HTTP spec, a PUT request requires the client to send the entire updated entity, not just the deltas. To support partial updates, use HTTP PATCH.
-
-Delete
-
-```cs
-[HttpDelete("{id}")]
-public IActionResult Delete(int id) {
-    var product = _ProductsRepository.Find(id);
-    if (product == null) {
-        return NotFound();
-    }
-
-    _ProductsRepository.Remove(id);
-    return new NoContentResult();
-}
-```
-
-The response is 204 (No Content).
+Refresh the page and check that the console shows the response.
 
 # Next steps
 
 ```
 git add .
-git commit -m "student: step 1 complete"
-git checkout step02starter 
+git commit -m "student: step 2 complete"
+git checkout step03start 
 ```
