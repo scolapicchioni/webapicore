@@ -1,21 +1,37 @@
-# Some theory before we start coding
+# The practice will explain everything you need to know, but here are some links to know more
 
-## Startup Class
+## Vue.js
 
-https://docs.microsoft.com/en-us/aspnet/core/fundamentals/startup](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/startup)
+[https://vuejs.org](https://vuejs.org)
 
-## Middleware
+## Vue Introduction
 
-https://docs.microsoft.com/en-us/aspnet/core/fundamentals/middleware](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/middleware)
+[https://vuejs.org/v2/guide/index.html](https://vuejs.org/v2/guide/index.html)
 
-## Using Static Files
+## The Vue Instance
 
-[https://docs.microsoft.com/en-us/aspnet/core/fundamentals/static-files](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/static-files)
+[https://vuejs.org/v2/guide/instance.html](https://vuejs.org/v2/guide/instance.html)
 
-## fetch API
+## Template Syntax
 
-[https://davidwalsh.name/fetch](https://davidwalsh.name/fetch)
+[https://vuejs.org/v2/guide/syntax.html](https://vuejs.org/v2/guide/syntax.html)
 
-### Cross Origin Requests (CORS)
+## Conditional Rendering
 
-[https://docs.microsoft.com/en-us/aspnet/core/security/cors](https://docs.microsoft.com/en-us/aspnet/core/security/cors)
+[https://vuejs.org/v2/guide/conditional.html](https://vuejs.org/v2/guide/conditional.html)
+
+## Rendering Lists
+
+[https://vuejs.org/v2/guide/list.html](https://vuejs.org/v2/guide/list.html)
+
+## Form Input Binding
+
+[https://vuejs.org/v2/guide/forms.html](https://vuejs.org/v2/guide/forms.html)
+
+## Event Handling
+
+[https://vuejs.org/v2/guide/events.html](https://vuejs.org/v2/guide/events.html)
+
+## Components
+
+[https://vuejs.org/v2/guide/components.html](https://vuejs.org/v2/guide/components.html)
