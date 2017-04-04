@@ -3,9 +3,19 @@
 <head>
     <meta charset="utf-8" />
     <title></title>
+    <script src="js/vue.js"></script>
     <script src="js/datalayer.js"></script>
+    <script src="js/viewmodel.js"></script>
 </head>
 <body>
+    <div id="app">
+        <button v-on:click="add" v-bind:disabled="isFormInUse">New Product</button>
 
+        <product-form v-if="isFormInUse" v-bind:product="current" v-on:saving="productSaving" v-on:cancel="cancel"></product-form>
+
+        <section>
+            <product-item v-for="product in products" v-bind:prod="product" v-bind:buttons-disabled="isFormInUse" :key="product.id" v-on:selected="productSelected" v-on:deleting="productDeleting"></product-item>
+        </section>
+    </div>
 </body>
 </html>

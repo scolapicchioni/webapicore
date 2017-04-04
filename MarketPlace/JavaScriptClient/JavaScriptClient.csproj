@@ -7,6 +7,7 @@
   <ItemGroup>
     <Content Include="wwwroot\index.html" />
     <Content Include="wwwroot\js\datalayer.js" />
+    <Content Include="wwwroot\js\viewmodel.js" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.1.0-beta1" />

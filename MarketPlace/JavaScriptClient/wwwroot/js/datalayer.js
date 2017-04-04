@@ -41,17 +41,3 @@
         });
     }
 }
-
-const dl = new DataLayer();
-
-dl.getAllProducts()
-    .then(console.log)
-    .then(() => dl.getProductById(1))
-    .then(console.log)
-    .then(() => dl.insertProduct({ id: 0, name: "New Product", description: "Added through javascript", price: 9876 }))
-    .then(console.log)
-    .then(() => dl.updateProduct(1, { id: 1, name: "Modified Product", description: "Modified through javascript", price: 9876 }))
-    .then(() => dl.getProductById(1))
-    .then(console.log)
-    .then(() => dl.deleteProduct(1))
-    .then(console.log);
