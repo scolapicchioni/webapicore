@@ -10,6 +10,8 @@ using Microsoft.Extensions.Logging;
 using MarketPlaceService.Data;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Swagger;
+using Microsoft.AspNetCore.Authorization;
+using MarketPlaceService.Authorization;
 
 namespace MarketPlaceService
 {
@@ -32,7 +34,7 @@ namespace MarketPlaceService
         {
             // requires using Microsoft.EntityFrameworkCore;
             // and using MarketPlaceService.Data;
-            services.AddDbContext<MarketPlaceContext>(opt => opt.UseInMemoryDatabase());
+            services.AddDbContext<MarketPlaceContext>(opt => opt.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
 
             services.AddCors(options =>
                 options.AddPolicy("default", policy =>
@@ -42,11 +44,19 @@ namespace MarketPlaceService
                 )
             );
 
+            services.AddAuthorization(options => {
+                options.AddPolicy("ProductOwner", policy => policy.Requirements.Add(new ProductOwnerRequirement()));
+            });
+
+            //requires using Microsoft.AspNetCore.Authorization;
+            //requires using MarketPlaceService.Authorization;
+            services.AddSingleton<IAuthorizationHandler, ProductOwnerAuthorizationHandler>();
+
             // Add framework services.
             services.AddMvc();
 
             // requires using MarketPlaceService.Models;
-            services.AddSingleton<IProductsRepository, ProductsRepository>();
+            services.AddTransient<IProductsRepository, ProductsRepository>();
 
             ///requires using Swashbuckle.AspNetCore.Swagger;
             services.AddSwaggerGen(c =>
@@ -56,7 +66,7 @@ namespace MarketPlaceService
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, MarketPlaceContext context)
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
@@ -78,6 +88,8 @@ namespace MarketPlaceService
             });
 
             app.UseMvc();
+
+            DbInitializer.Initialize(context);
         }
     }
 }

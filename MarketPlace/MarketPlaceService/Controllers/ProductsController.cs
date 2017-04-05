@@ -11,9 +11,11 @@ namespace MarketPlaceService.Controllers {
     [Produces("application/json")]
     public class ProductsController : Controller {
         private readonly IProductsRepository _ProductsRepository;
+        IAuthorizationService _authorizationService;
 
-        public ProductsController(IProductsRepository ProductsRepository) {
+        public ProductsController(IProductsRepository ProductsRepository, IAuthorizationService authorizationService) {
             _ProductsRepository = ProductsRepository;
+            _authorizationService = authorizationService;
         }
 
         [HttpGet]
@@ -44,7 +46,7 @@ namespace MarketPlaceService.Controllers {
         //requires using Microsoft.AspNetCore.Authorization;
         [Authorize]
         public IActionResult Create([FromBody] Product product) {
-            if (product == null) {
+            if (product == null || product.UserName != User.Identity.Name) {
                 return BadRequest();
             }
 
@@ -68,6 +70,10 @@ namespace MarketPlaceService.Controllers {
                 return NotFound();
             }
 
+            if (!_authorizationService.AuthorizeAsync(User, product, "ProductOwner").Result) {
+                return new ChallengeResult();
+            }
+
             original.Name = product.Name;
             original.Description = product.Description;
             original.Price = product.Price;
@@ -84,6 +90,9 @@ namespace MarketPlaceService.Controllers {
             var product = _ProductsRepository.Find(id);
             if (product == null) {
                 return NotFound();
+            }
+            if (!_authorizationService.AuthorizeAsync(User, product, "ProductOwner").Result) {
+                return new ChallengeResult();
             }
 
             _ProductsRepository.Remove(id);

@@ -6,5 +6,9 @@ namespace MarketPlaceService.Data {
         public DbSet<Product> Products { get; set; }
 
         public MarketPlaceContext(DbContextOptions<MarketPlaceContext> options) : base(options) { }
+
+        protected override void OnModelCreating(ModelBuilder builder) {
+            base.OnModelCreating(builder);
+        }
     }
 }

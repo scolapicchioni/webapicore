@@ -15,20 +15,22 @@
     import ProductForm from './ProductForm.vue'
     import ProductItem from './ProductItem.vue'  
     import CommandBar from './CommandBar.vue'  
+    import applicationUserManager from "./ApplicationUserManager"
 
     export default {
         name: 'app',
         data() {
             return {
                 products: [],
-                current: { id: 0, name: "", description: "", price: 0 },
+                current: { id: 0, name: "", description: "", price: 0, userName: "" },
                 isFormInUse: false
             }
         },
-        mounted () {
-            new DataLayer()
-                .getAllProducts()
-                .then(products => this.products = products);
+        async mounted () {
+            this.products = await new DataLayer().getAllProducts(); 
+
+            let user = await applicationUserManager.getUser();
+            this.current.userName = user && user.profile && user.profile.name ? user.profile.name : "" ;
         },
         methods: {
             productSelected (selectedProduct) {
@@ -46,27 +48,30 @@
                 }
                 this.isFormInUse = false;
             },
-            add () {
-                this.current = { id: 0, brand: "", name: "", price: 0 };
+            async add() {
+                let user = await applicationUserManager.getUser();
+                this.current = { id: 0, brand: "", name: "", price: 0, userName: user && user.profile && user.profile.name ? user.profile.name : "" };
                 this.isFormInUse = true;
             },
             productDeleting (product) {
                 new DataLayer().deleteProduct(product.id)
                     .then(() => this.products.splice(this.products.indexOf(product), 1));
             },
-            cancel(product) {
+            async cancel(product) {
                 if (product.id == 0) {
+                    let user = await authenticationManager.getUser();
                     this.current.id = 0;
                     this.current.name = "";
                     this.current.description = "";
                     this.current.price = 0;
+                    this.current.userName = user && user.profile && user.profile.name ? user.profile.name : "";
                 } else {
-                    new DataLayer().getProductById(product.id).then(p => {
-                        this.current.id = p.id;
-                        this.current.name = p.name;
-                        this.current.description = p.description;
-                        this.current.price = p.price;
-                    });
+                    const p = await new DataLayer().getProductById(product.id);
+                    this.current.id = p.id;
+                    this.current.name = p.name;
+                    this.current.description = p.description;
+                    this.current.price = p.price;
+                    this.current.userName = p.userName;
                 }
                 this.isFormInUse = false;
             }

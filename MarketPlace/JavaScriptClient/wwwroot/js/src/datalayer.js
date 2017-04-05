@@ -34,27 +34,34 @@ export default class {
             }
         });
         return data.obj;
-
-        //return new Swagger({
-        //    url: this.url,
-        //    usePromise: true
-        //}).then(client => client.Products.createProduct({ product }))
-        //.then(data => data.obj);
     }
 
-    updateProduct(id, product) {
-        return new Swagger({
+    async updateProduct(id, product) {
+        const user = await applicationUserManager.getUser();
+        const client = await new Swagger({
             url: this.url,
             usePromise: true
-        }).then(client => client.Products.updateProduct({ id, product }))
-        .then(data => data.obj);
+        });
+
+        const data = await client.Products.updateProduct({ id, product }, {
+            clientAuthorizations: {
+                api_key: new Swagger.ApiKeyAuthorization('Authorization', 'Bearer ' + user.access_token, 'header')
+            }
+        });
+        return data.obj;
     }
 
-    deleteProduct(id) {
-        return new Swagger({
+    async deleteProduct(id) {
+        const user = await applicationUserManager.getUser();
+        const client = await new Swagger({
             url: this.url,
             usePromise: true
-        }).then(client => client.Products.deleteProduct({ id }))
-        .then(data => data.obj);
+        });
+        const data = client.Products.deleteProduct({ id }, {
+            clientAuthorizations: {
+                api_key: new Swagger.ApiKeyAuthorization('Authorization', 'Bearer ' + user.access_token, 'header')
+            }
+        });
+        return data.obj;
     }
 }

@@ -7,7 +7,6 @@ namespace MarketPlaceService.Data {
         private MarketPlaceContext _context;
         public ProductsRepository(MarketPlaceContext context) {
             _context = context;
-            Add(new Product { Name = "Product 1", Description = "First Sample Product", Price = 1234 });
         }
 
         public void Add(Product product) {
