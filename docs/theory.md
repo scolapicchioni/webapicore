@@ -1,21 +1,25 @@
 # The practice will explain everything you need to know, but here are some links to know more
 
-## Swagger
+## IdentityServer4
 
-[http://swagger.io/](http://swagger.io/)
+[https://identityserver.io/](https://identityserver.io/)
 
-## The Swagger Specification
+## IdentityServer4 Documentation
 
-[http://swagger.io/specification/](http://swagger.io/specification/)
+[https://identityserver4.readthedocs.io/en/release/index.html](https://identityserver4.readthedocs.io/en/release/index.html)
 
-## Swashbuckle.AspNetCore
+## IdentityServer4 Samples
 
-[https://github.com/domaindrivendev/Swashbuckle.AspNetCore](https://github.com/domaindrivendev/Swashbuckle.AspNetCore)
+[https://github.com/IdentityServer/IdentityServer4.Samples](https://github.com/IdentityServer/IdentityServer4.Samples)
 
-## Swagger Js
+## IdentityServer Quickstart Tutorials
 
-[https://github.com/swagger-api/swagger-js](https://github.com/swagger-api/swagger-js)
+[https://identityserver4.readthedocs.io/en/release/quickstarts/0_overview.html](https://identityserver4.readthedocs.io/en/release/quickstarts/0_overview.html)
 
-## AutoRest
+## Simple Authorization
 
-[https://github.com/Azure/autorest](https://github.com/Azure/autorest)
+[https://docs.microsoft.com/en-us/aspnet/core/security/authorization/simple](https://docs.microsoft.com/en-us/aspnet/core/security/authorization/simple)
+
+## oidc-client
+
+[https://github.com/IdentityModel/oidc-client-js](https://github.com/IdentityModel/oidc-client-js)
