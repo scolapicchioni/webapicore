@@ -37,12 +37,10 @@
                 this.current = selectedProduct;
                 this.isFormInUse = true;
             },
-            productSaving (productToSave) {
+            async productSaving (productToSave) {
                 if (productToSave.id == 0) {
-                    new DataLayer().insertProduct(productToSave)
-                        .then(product => {
-                            this.products.push(product);
-                        });
+                    const product = await new DataLayer().insertProduct(productToSave);
+                    this.products.push(product);
                 } else {
                     new DataLayer().updateProduct(productToSave.id, productToSave);
                 }
@@ -53,9 +51,9 @@
                 this.current = { id: 0, brand: "", name: "", price: 0, userName: user && user.profile && user.profile.name ? user.profile.name : "" };
                 this.isFormInUse = true;
             },
-            productDeleting (product) {
-                new DataLayer().deleteProduct(product.id)
-                    .then(() => this.products.splice(this.products.indexOf(product), 1));
+            async productDeleting (product) {
+                await new DataLayer().deleteProduct(product.id);
+                this.products.splice(this.products.indexOf(product), 1);
             },
             async cancel(product) {
                 if (product.id == 0) {

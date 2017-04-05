@@ -2352,7 +2352,7 @@ var ApplicationUserManager = function (_Oidc$UserManager) {
         _this.getUser().then(function (user) {
             if (user) _this.log("User logged in", user.profile);else _this.log("User not logged in");
         }).catch(function (error) {
-            return _this.log("Problem trying to read the user", error);
+            _this.log("Problem trying to read the user", error);
         });
         return _this;
     }
@@ -11255,35 +11255,35 @@ exports.default = {
             this.current = selectedProduct;
             this.isFormInUse = true;
         },
-        productSaving: function productSaving(productToSave) {
-            var _this = this;
-
-            if (productToSave.id == 0) {
-                new _datalayer2.default().insertProduct(productToSave).then(function (product) {
-                    _this.products.push(product);
-                });
-            } else {
-                new _datalayer2.default().updateProduct(productToSave.id, productToSave);
-            }
-            this.isFormInUse = false;
-        },
-        add: function () {
-            var _ref2 = _asyncToGenerator(regeneratorRuntime.mark(function _callee2() {
-                var user;
+        productSaving: function () {
+            var _ref2 = _asyncToGenerator(regeneratorRuntime.mark(function _callee2(productToSave) {
+                var product;
                 return regeneratorRuntime.wrap(function _callee2$(_context2) {
                     while (1) {
                         switch (_context2.prev = _context2.next) {
                             case 0:
-                                _context2.next = 2;
-                                return _ApplicationUserManager2.default.getUser();
+                                if (!(productToSave.id == 0)) {
+                                    _context2.next = 7;
+                                    break;
+                                }
 
-                            case 2:
-                                user = _context2.sent;
+                                _context2.next = 3;
+                                return new _datalayer2.default().insertProduct(productToSave);
 
-                                this.current = { id: 0, brand: "", name: "", price: 0, userName: user && user.profile && user.profile.name ? user.profile.name : "" };
-                                this.isFormInUse = true;
+                            case 3:
+                                product = _context2.sent;
 
-                            case 5:
+                                this.products.push(product);
+                                _context2.next = 8;
+                                break;
+
+                            case 7:
+                                new _datalayer2.default().updateProduct(productToSave.id, productToSave);
+
+                            case 8:
+                                this.isFormInUse = false;
+
+                            case 9:
                             case 'end':
                                 return _context2.stop();
                         }
@@ -11291,51 +11291,100 @@ exports.default = {
                 }, _callee2, this);
             }));
 
-            function add() {
+            function productSaving(_x) {
                 return _ref2.apply(this, arguments);
             }
 
-            return add;
+            return productSaving;
         }(),
-        productDeleting: function productDeleting(product) {
-            var _this2 = this;
-
-            new _datalayer2.default().deleteProduct(product.id).then(function () {
-                return _this2.products.splice(_this2.products.indexOf(product), 1);
-            });
-        },
-        cancel: function () {
-            var _ref3 = _asyncToGenerator(regeneratorRuntime.mark(function _callee3(product) {
-                var user, p;
+        add: function () {
+            var _ref3 = _asyncToGenerator(regeneratorRuntime.mark(function _callee3() {
+                var user;
                 return regeneratorRuntime.wrap(function _callee3$(_context3) {
                     while (1) {
                         switch (_context3.prev = _context3.next) {
                             case 0:
+                                _context3.next = 2;
+                                return _ApplicationUserManager2.default.getUser();
+
+                            case 2:
+                                user = _context3.sent;
+
+                                this.current = { id: 0, brand: "", name: "", price: 0, userName: user && user.profile && user.profile.name ? user.profile.name : "" };
+                                this.isFormInUse = true;
+
+                            case 5:
+                            case 'end':
+                                return _context3.stop();
+                        }
+                    }
+                }, _callee3, this);
+            }));
+
+            function add() {
+                return _ref3.apply(this, arguments);
+            }
+
+            return add;
+        }(),
+        productDeleting: function () {
+            var _ref4 = _asyncToGenerator(regeneratorRuntime.mark(function _callee4(product) {
+                return regeneratorRuntime.wrap(function _callee4$(_context4) {
+                    while (1) {
+                        switch (_context4.prev = _context4.next) {
+                            case 0:
+                                _context4.next = 2;
+                                return new _datalayer2.default().deleteProduct(product.id);
+
+                            case 2:
+                                this.products.splice(this.products.indexOf(product), 1);
+
+                            case 3:
+                            case 'end':
+                                return _context4.stop();
+                        }
+                    }
+                }, _callee4, this);
+            }));
+
+            function productDeleting(_x2) {
+                return _ref4.apply(this, arguments);
+            }
+
+            return productDeleting;
+        }(),
+        cancel: function () {
+            var _ref5 = _asyncToGenerator(regeneratorRuntime.mark(function _callee5(product) {
+                var user, p;
+                return regeneratorRuntime.wrap(function _callee5$(_context5) {
+                    while (1) {
+                        switch (_context5.prev = _context5.next) {
+                            case 0:
                                 if (!(product.id == 0)) {
-                                    _context3.next = 11;
+                                    _context5.next = 11;
                                     break;
                                 }
 
-                                _context3.next = 3;
+                                _context5.next = 3;
                                 return authenticationManager.getUser();
 
                             case 3:
-                                user = _context3.sent;
+                                user = _context5.sent;
 
                                 this.current.id = 0;
                                 this.current.name = "";
                                 this.current.description = "";
                                 this.current.price = 0;
                                 this.current.userName = user && user.profile && user.profile.name ? user.profile.name : "";
-                                _context3.next = 19;
+                                _context5.next = 19;
                                 break;
 
                             case 11:
-                                _context3.next = 13;
+                                _context5.next = 13;
                                 return new _datalayer2.default().getProductById(product.id);
 
                             case 13:
-                                p = _context3.sent;
+                                p = _context5.sent;
 
                                 this.current.id = p.id;
                                 this.current.name = p.name;
@@ -11348,14 +11397,14 @@ exports.default = {
 
                             case 20:
                             case 'end':
-                                return _context3.stop();
+                                return _context5.stop();
                         }
                     }
-                }, _callee3, this);
+                }, _callee5, this);
             }));
 
-            function cancel(_x) {
-                return _ref3.apply(this, arguments);
+            function cancel(_x3) {
+                return _ref5.apply(this, arguments);
             }
 
             return cancel;
@@ -11676,62 +11725,29 @@ var _class = function () {
 
     _createClass(_class, [{
         key: "getAllProducts",
-        value: function getAllProducts() {
-            return new _swaggerClient2.default({
-                url: this.url,
-                usePromise: true
-            }).then(function (client) {
-                return client.Products.getProducts();
-            }).then(function (data) {
-                return data.obj;
-            });
-        }
-    }, {
-        key: "getProductById",
-        value: function getProductById(id) {
-            return new _swaggerClient2.default({
-                url: this.url,
-                usePromise: true
-            }).then(function (client) {
-                return client.Products.getProduct({ id: id });
-            }).then(function (data) {
-                return data.obj;
-            });
-        }
-    }, {
-        key: "insertProduct",
         value: function () {
-            var _ref = _asyncToGenerator(regeneratorRuntime.mark(function _callee(product) {
-                var user, client, data;
+            var _ref = _asyncToGenerator(regeneratorRuntime.mark(function _callee() {
+                var client, data;
                 return regeneratorRuntime.wrap(function _callee$(_context) {
                     while (1) {
                         switch (_context.prev = _context.next) {
                             case 0:
                                 _context.next = 2;
-                                return _ApplicationUserManager2.default.getUser();
-
-                            case 2:
-                                user = _context.sent;
-                                _context.next = 5;
                                 return new _swaggerClient2.default({
                                     url: this.url,
                                     usePromise: true
                                 });
 
-                            case 5:
+                            case 2:
                                 client = _context.sent;
-                                _context.next = 8;
-                                return client.Products.createProduct({ product: product }, {
-                                    clientAuthorizations: {
-                                        api_key: new _swaggerClient2.default.ApiKeyAuthorization('Authorization', 'Bearer ' + user.access_token, 'header')
-                                    }
-                                });
+                                _context.next = 5;
+                                return client.Products.getProducts();
 
-                            case 8:
+                            case 5:
                                 data = _context.sent;
                                 return _context.abrupt("return", data.obj);
 
-                            case 10:
+                            case 7:
                             case "end":
                                 return _context.stop();
                         }
@@ -11739,46 +11755,37 @@ var _class = function () {
                 }, _callee, this);
             }));
 
-            function insertProduct(_x) {
+            function getAllProducts() {
                 return _ref.apply(this, arguments);
             }
 
-            return insertProduct;
+            return getAllProducts;
         }()
     }, {
-        key: "updateProduct",
+        key: "getProductById",
         value: function () {
-            var _ref2 = _asyncToGenerator(regeneratorRuntime.mark(function _callee2(id, product) {
-                var user, client, data;
+            var _ref2 = _asyncToGenerator(regeneratorRuntime.mark(function _callee2(id) {
+                var client, data;
                 return regeneratorRuntime.wrap(function _callee2$(_context2) {
                     while (1) {
                         switch (_context2.prev = _context2.next) {
                             case 0:
                                 _context2.next = 2;
-                                return _ApplicationUserManager2.default.getUser();
-
-                            case 2:
-                                user = _context2.sent;
-                                _context2.next = 5;
                                 return new _swaggerClient2.default({
                                     url: this.url,
                                     usePromise: true
                                 });
 
-                            case 5:
+                            case 2:
                                 client = _context2.sent;
-                                _context2.next = 8;
-                                return client.Products.updateProduct({ id: id, product: product }, {
-                                    clientAuthorizations: {
-                                        api_key: new _swaggerClient2.default.ApiKeyAuthorization('Authorization', 'Bearer ' + user.access_token, 'header')
-                                    }
-                                });
+                                _context2.next = 5;
+                                return client.Products.getProduct({ id: id });
 
-                            case 8:
+                            case 5:
                                 data = _context2.sent;
                                 return _context2.abrupt("return", data.obj);
 
-                            case 10:
+                            case 7:
                             case "end":
                                 return _context2.stop();
                         }
@@ -11786,16 +11793,16 @@ var _class = function () {
                 }, _callee2, this);
             }));
 
-            function updateProduct(_x2, _x3) {
+            function getProductById(_x) {
                 return _ref2.apply(this, arguments);
             }
 
-            return updateProduct;
+            return getProductById;
         }()
     }, {
-        key: "deleteProduct",
+        key: "insertProduct",
         value: function () {
-            var _ref3 = _asyncToGenerator(regeneratorRuntime.mark(function _callee3(id) {
+            var _ref3 = _asyncToGenerator(regeneratorRuntime.mark(function _callee3(product) {
                 var user, client, data;
                 return regeneratorRuntime.wrap(function _callee3$(_context3) {
                     while (1) {
@@ -11814,14 +11821,18 @@ var _class = function () {
 
                             case 5:
                                 client = _context3.sent;
-                                data = client.Products.deleteProduct({ id: id }, {
+                                _context3.next = 8;
+                                return client.Products.createProduct({ product: product }, {
                                     clientAuthorizations: {
                                         api_key: new _swaggerClient2.default.ApiKeyAuthorization('Authorization', 'Bearer ' + user.access_token, 'header')
                                     }
                                 });
-                                return _context3.abrupt("return", data.obj);
 
                             case 8:
+                                data = _context3.sent;
+                                return _context3.abrupt("return", data.obj);
+
+                            case 10:
                             case "end":
                                 return _context3.stop();
                         }
@@ -11829,8 +11840,98 @@ var _class = function () {
                 }, _callee3, this);
             }));
 
-            function deleteProduct(_x4) {
+            function insertProduct(_x2) {
                 return _ref3.apply(this, arguments);
+            }
+
+            return insertProduct;
+        }()
+    }, {
+        key: "updateProduct",
+        value: function () {
+            var _ref4 = _asyncToGenerator(regeneratorRuntime.mark(function _callee4(id, product) {
+                var user, client, data;
+                return regeneratorRuntime.wrap(function _callee4$(_context4) {
+                    while (1) {
+                        switch (_context4.prev = _context4.next) {
+                            case 0:
+                                _context4.next = 2;
+                                return _ApplicationUserManager2.default.getUser();
+
+                            case 2:
+                                user = _context4.sent;
+                                _context4.next = 5;
+                                return new _swaggerClient2.default({
+                                    url: this.url,
+                                    usePromise: true
+                                });
+
+                            case 5:
+                                client = _context4.sent;
+                                _context4.next = 8;
+                                return client.Products.updateProduct({ id: id, product: product }, {
+                                    clientAuthorizations: {
+                                        api_key: new _swaggerClient2.default.ApiKeyAuthorization('Authorization', 'Bearer ' + user.access_token, 'header')
+                                    }
+                                });
+
+                            case 8:
+                                data = _context4.sent;
+                                return _context4.abrupt("return", data.obj);
+
+                            case 10:
+                            case "end":
+                                return _context4.stop();
+                        }
+                    }
+                }, _callee4, this);
+            }));
+
+            function updateProduct(_x3, _x4) {
+                return _ref4.apply(this, arguments);
+            }
+
+            return updateProduct;
+        }()
+    }, {
+        key: "deleteProduct",
+        value: function () {
+            var _ref5 = _asyncToGenerator(regeneratorRuntime.mark(function _callee5(id) {
+                var user, client, data;
+                return regeneratorRuntime.wrap(function _callee5$(_context5) {
+                    while (1) {
+                        switch (_context5.prev = _context5.next) {
+                            case 0:
+                                _context5.next = 2;
+                                return _ApplicationUserManager2.default.getUser();
+
+                            case 2:
+                                user = _context5.sent;
+                                _context5.next = 5;
+                                return new _swaggerClient2.default({
+                                    url: this.url,
+                                    usePromise: true
+                                });
+
+                            case 5:
+                                client = _context5.sent;
+                                data = client.Products.deleteProduct({ id: id }, {
+                                    clientAuthorizations: {
+                                        api_key: new _swaggerClient2.default.ApiKeyAuthorization('Authorization', 'Bearer ' + user.access_token, 'header')
+                                    }
+                                });
+                                return _context5.abrupt("return", data.obj);
+
+                            case 8:
+                            case "end":
+                                return _context5.stop();
+                        }
+                    }
+                }, _callee5, this);
+            }));
+
+            function deleteProduct(_x5) {
+                return _ref5.apply(this, arguments);
             }
 
             return deleteProduct;

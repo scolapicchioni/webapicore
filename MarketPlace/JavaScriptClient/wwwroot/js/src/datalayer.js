@@ -5,20 +5,22 @@ export default class {
     constructor() {
         this.url = `http://localhost:5000/swagger/v1/swagger.json`;
     }
-    getAllProducts() {
-        return new Swagger({
+    async getAllProducts() {
+        const client = await new Swagger({
             url: this.url,
             usePromise: true
-        }).then(client => client.Products.getProducts())
-          .then(data => data.obj);
+        });
+        const data = await client.Products.getProducts();
+        return data.obj;
     }
 
-    getProductById(id) {
-        return new Swagger({
+    async getProductById(id) {
+        const client = await new Swagger({
             url: this.url,
             usePromise: true
-        }).then(client => client.Products.getProduct({ id }))
-        .then(data => data.obj);
+        });
+        const data = await client.Products.getProduct({ id });
+        return data.obj;
     }
 
     async insertProduct(product) {

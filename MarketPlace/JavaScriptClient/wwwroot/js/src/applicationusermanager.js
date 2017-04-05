@@ -11,12 +11,15 @@ class ApplicationUserManager extends Oidc.UserManager {
             post_logout_redirect_uri: "http://localhost:5001/index.html"
         });
 
+        
         this.getUser().then(user => {
             if (user)
                 this.log("User logged in", user.profile);
             else
                 this.log("User not logged in");
-        }).catch(error => this.log("Problem trying to read the user", error));
+        }).catch(error => {
+            this.log("Problem trying to read the user", error);
+        });
     }
 
     log(...parameters) {
