@@ -1,4 +1,4 @@
-﻿class DataLayer {
+﻿export default class{
     constructor() {
         this.serviceUrl = "http://localhost:5000/api/products";
     }
