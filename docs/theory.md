@@ -1,37 +1,50 @@
 # The practice will explain everything you need to know, but here are some links to know more
 
-## Vue.js
+## Single File Components
 
-[https://vuejs.org](https://vuejs.org)
+[https://vuejs.org/v2/guide/single-file-components.html](https://vuejs.org/v2/guide/single-file-components.html)
 
-## Vue Introduction
+## Node Package Manager (NPM)
 
-[https://vuejs.org/v2/guide/index.html](https://vuejs.org/v2/guide/index.html)
+Getting Started guide through section 10: Uninstalling global packages. 
+[https://docs.npmjs.com/getting-started/what-is-npm](https://docs.npmjs.com/getting-started/what-is-npm)
 
-## The Vue Instance
+## Babel
 
-[https://vuejs.org/v2/guide/instance.html](https://vuejs.org/v2/guide/instance.html)
+[https://babeljs.io/docs/learn-es2015/](https://babeljs.io/docs/learn-es2015/)
 
-## Template Syntax
+## WebPack
 
-[https://vuejs.org/v2/guide/syntax.html](https://vuejs.org/v2/guide/syntax.html)
+[https://webpack.js.org/](https://webpack.js.org/)
 
-## Conditional Rendering
+## Bootstrap
 
-[https://vuejs.org/v2/guide/conditional.html](https://vuejs.org/v2/guide/conditional.html)
+[https://v4-alpha.getbootstrap.com/](https://v4-alpha.getbootstrap.com/)
 
-## Rendering Lists
+## Introduction
 
-[https://vuejs.org/v2/guide/list.html](https://vuejs.org/v2/guide/list.html)
+[https://v4-alpha.getbootstrap.com/getting-started/introduction/](https://v4-alpha.getbootstrap.com/getting-started/introduction/)
 
-## Form Input Binding
+## Layout Overview
 
-[https://vuejs.org/v2/guide/forms.html](https://vuejs.org/v2/guide/forms.html)
+[https://v4-alpha.getbootstrap.com/layout/overview/](https://v4-alpha.getbootstrap.com/layout/overview/)
 
-## Event Handling
+## Grid System
 
-[https://vuejs.org/v2/guide/events.html](https://vuejs.org/v2/guide/events.html)
+[https://v4-alpha.getbootstrap.com/layout/grid/](https://v4-alpha.getbootstrap.com/layout/grid/)
 
-## Components
+## Buttons
 
-[https://vuejs.org/v2/guide/components.html](https://vuejs.org/v2/guide/components.html)
+[https://v4-alpha.getbootstrap.com/components/buttons/](https://v4-alpha.getbootstrap.com/components/buttons/)
+
+## Cards
+
+[https://v4-alpha.getbootstrap.com/components/card/](https://v4-alpha.getbootstrap.com/components/card/)
+
+## Forms
+
+[https://v4-alpha.getbootstrap.com/components/forms/](https://v4-alpha.getbootstrap.com/components/forms/)
+
+## Navbars
+
+[https://v4-alpha.getbootstrap.com/components/navbar/](https://v4-alpha.getbootstrap.com/components/navbar/)
