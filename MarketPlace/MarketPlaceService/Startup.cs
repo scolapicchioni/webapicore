@@ -70,6 +70,13 @@ namespace MarketPlaceService
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "MarketPlace API V1");
             });
 
+            app.UseIdentityServerAuthentication(new IdentityServerAuthenticationOptions {
+                Authority = "http://localhost:5002",
+                RequireHttpsMetadata = false,
+
+                ApiName = "MarketplaceService"
+            });
+
             app.UseMvc();
         }
     }

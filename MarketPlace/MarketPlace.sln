@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketPlaceService", "Marke
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JavaScriptClient", "JavaScriptClient\JavaScriptClient.csproj", "{B32C1540-17C6-4A7B-BE06-96323D7A7E57}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IdentityServer", "IdentityServer\IdentityServer.csproj", "{252C6F1E-FFDA-456B-9A3C-B1C02903F9A9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{B32C1540-17C6-4A7B-BE06-96323D7A7E57}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B32C1540-17C6-4A7B-BE06-96323D7A7E57}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B32C1540-17C6-4A7B-BE06-96323D7A7E57}.Release|Any CPU.Build.0 = Release|Any CPU
+		{252C6F1E-FFDA-456B-9A3C-B1C02903F9A9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{252C6F1E-FFDA-456B-9A3C-B1C02903F9A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{252C6F1E-FFDA-456B-9A3C-B1C02903F9A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{252C6F1E-FFDA-456B-9A3C-B1C02903F9A9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

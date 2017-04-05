@@ -5,9 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="wwwroot\callback.html" />
     <Content Include="wwwroot\index.html" />
     <Content Include="wwwroot\js\datalayer.js" />
     <Content Include="wwwroot\js\src\App.vue" />
+    <Content Include="wwwroot\js\src\applicationusermanager.js" />
     <Content Include="wwwroot\js\src\CommandBar.vue" />
     <Content Include="wwwroot\js\src\datalayer.js" />
     <Content Include="wwwroot\js\src\main.js" />

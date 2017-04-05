@@ -1,4 +1,5 @@
-﻿import Swagger from "swagger-client"
+﻿import applicationUserManager from "./ApplicationUserManager"
+import Swagger from "swagger-client"
 
 export default class {
     constructor() {
@@ -20,12 +21,25 @@ export default class {
         .then(data => data.obj);
     }
 
-    insertProduct(product) {
-        return new Swagger({
+    async insertProduct(product) {
+        const user = await applicationUserManager.getUser();
+        const client = await new Swagger({
             url: this.url,
             usePromise: true
-        }).then(client => client.Products.createProduct({ product }))
-        .then(data => data.obj);
+        });
+
+        const data = await client.Products.createProduct({ product }, {
+            clientAuthorizations: {
+                api_key: new Swagger.ApiKeyAuthorization('Authorization', 'Bearer ' + user.access_token, 'header')
+            }
+        });
+        return data.obj;
+
+        //return new Swagger({
+        //    url: this.url,
+        //    usePromise: true
+        //}).then(client => client.Products.createProduct({ product }))
+        //.then(data => data.obj);
     }
 
     updateProduct(id, product) {

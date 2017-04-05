@@ -4,6 +4,7 @@ using MarketPlaceService.Models;
 using MarketPlaceService.Data;
 using Microsoft.AspNetCore.Http;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using Microsoft.AspNetCore.Authorization;
 
 namespace MarketPlaceService.Controllers {
     [Route("api/[controller]")]
@@ -40,6 +41,8 @@ namespace MarketPlaceService.Controllers {
         [ProducesResponseType(typeof(Product), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(void), StatusCodes.Status400BadRequest)]
         [SwaggerOperation("createProduct")]
+        //requires using Microsoft.AspNetCore.Authorization;
+        [Authorize]
         public IActionResult Create([FromBody] Product product) {
             if (product == null) {
                 return BadRequest();
