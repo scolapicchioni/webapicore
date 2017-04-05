@@ -12,6 +12,7 @@
     "vue-template-compiler": "^2.2.6"
   },
   "dependencies": {
-    "vue": "^2.2.6"
+    "vue": "^2.2.6",
+    "swagger-client": "^2.1.32"
   }
 }

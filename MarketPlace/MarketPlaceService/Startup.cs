@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MarketPlaceService.Data;
 using Microsoft.EntityFrameworkCore;
+using Swashbuckle.AspNetCore.Swagger;
 
 namespace MarketPlaceService
 {
@@ -46,6 +47,12 @@ namespace MarketPlaceService
 
             // requires using MarketPlaceService.Models;
             services.AddSingleton<IProductsRepository, ProductsRepository>();
+
+            ///requires using Swashbuckle.AspNetCore.Swagger;
+            services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new Info { Title = "MarketPlace APIs", Version = "v1" });
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -55,6 +62,13 @@ namespace MarketPlaceService
             loggerFactory.AddDebug();
 
             app.UseCors("default");
+
+            app.UseSwagger();
+
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "MarketPlace API V1");
+            });
 
             app.UseMvc();
         }

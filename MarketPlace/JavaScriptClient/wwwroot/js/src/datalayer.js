@@ -1,43 +1,46 @@
-﻿export default class{
+﻿import Swagger from "swagger-client"
+
+export default class {
     constructor() {
-        this.serviceUrl = "http://localhost:5000/api/products";
+        this.url = `http://localhost:5000/swagger/v1/swagger.json`;
     }
     getAllProducts() {
-        return fetch(this.serviceUrl).then(function (response) {
-            return response.json();
-        });
+        return new Swagger({
+            url: this.url,
+            usePromise: true
+        }).then(client => client.Products.getProducts())
+          .then(data => data.obj);
     }
+
     getProductById(id) {
-        return fetch(this.serviceUrl + "/" + id).then(function (response) {
-            return response.json();
-        });
+        return new Swagger({
+            url: this.url,
+            usePromise: true
+        }).then(client => client.Products.getProduct({ id }))
+        .then(data => data.obj);
     }
 
     insertProduct(product) {
-        return fetch(this.serviceUrl, {
-            method: 'POST',
-            body: JSON.stringify(product),
-            headers: new Headers({
-                'Content-Type': 'application/json'
-            })
-        }).then(function (response) {
-            return response.json();
-        });
+        return new Swagger({
+            url: this.url,
+            usePromise: true
+        }).then(client => client.Products.createProduct({ product }))
+        .then(data => data.obj);
     }
 
     updateProduct(id, product) {
-        return fetch(this.serviceUrl + "/" + id, {
-            method: 'PUT',
-            body: JSON.stringify(product),
-            headers: new Headers({
-                'Content-Type': 'application/json'
-            })
-        });
+        return new Swagger({
+            url: this.url,
+            usePromise: true
+        }).then(client => client.Products.updateProduct({ id, product }))
+        .then(data => data.obj);
     }
 
     deleteProduct(id) {
-        return fetch(this.serviceUrl + "/" + id, {
-            method: 'DELETE'
-        });
+        return new Swagger({
+            url: this.url,
+            usePromise: true
+        }).then(client => client.Products.deleteProduct({ id }))
+        .then(data => data.obj);
     }
 }
