@@ -1,25 +1,24 @@
 # The practice will explain everything you need to know, but here are some links to know more
 
-## IdentityServer4
+## Getting started with ASP.NET Core MVC and Entity Framework Core using Visual Studio (1 of 10)
 
-[https://identityserver.io/](https://identityserver.io/)
+[https://docs.microsoft.com/en-us/aspnet/core/data/ef-mvc/intro](https://docs.microsoft.com/en-us/aspnet/core/data/ef-mvc/intro)
 
-## IdentityServer4 Documentation
+## Migrations - EF Core with ASP.NET Core MVC tutorial (4 of 10)
 
-[https://identityserver4.readthedocs.io/en/release/index.html](https://identityserver4.readthedocs.io/en/release/index.html)
+[https://docs.microsoft.com/en-us/aspnet/core/data/ef-mvc/migrations](https://docs.microsoft.com/en-us/aspnet/core/data/ef-mvc/migrations)
 
-## IdentityServer4 Samples
+## Dependency Injection
 
-[https://github.com/IdentityServer/IdentityServer4.Samples](https://github.com/IdentityServer/IdentityServer4.Samples)
+[https://docs.microsoft.com/en-us/aspnet/core/fundamentals/dependency-injection](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/dependency-injection)
 
-## IdentityServer Quickstart Tutorials
 
-[https://identityserver4.readthedocs.io/en/release/quickstarts/0_overview.html](https://identityserver4.readthedocs.io/en/release/quickstarts/0_overview.html)
+## Custom Policy-Based Authorization
 
-## Simple Authorization
+[https://docs.microsoft.com/en-us/aspnet/core/security/authorization/policies](https://docs.microsoft.com/en-us/aspnet/core/security/authorization/policies)
 
-[https://docs.microsoft.com/en-us/aspnet/core/security/authorization/simple](https://docs.microsoft.com/en-us/aspnet/core/security/authorization/simple)
+## Resource Based Authorization
 
-## oidc-client
+[https://docs.microsoft.com/en-us/aspnet/core/security/authorization/resourcebased](https://docs.microsoft.com/en-us/aspnet/core/security/authorization/resourcebased)
 
-[https://github.com/IdentityModel/oidc-client-js](https://github.com/IdentityModel/oidc-client-js)
+

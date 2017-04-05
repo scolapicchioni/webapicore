@@ -1,620 +1,553 @@
-# Lab 06 - Identity Server
+# Lab 07 - Resource Based Authorization
 
-So far anyone can read, create, update and delete our products. 
+We did not yet protect the update and delete operations.
+
 What we would like to have is an application where:
 
-- Any user can view the list of products
-- Only authenticated users may add a new product
+- Every product has an owner
+- Products may be updated and deleted only by their respective owners
 
-In order to achieve this, we have to set up an authentication and authorization system.
+In order to achieve this, we have to update our MarketPlaceService and our JavaScriptClient.
 
-## Authentication / Authorization process
+- MarketPlaceService
+    - We'll add a UserName property to the Product class so that we can persist who the owner is
+    - We will update the Create action to check the UserName property of the product being added 
+    - We will use a Sql Server database instead of the memory store that we've bee using so far. It is not strictly necessary for our scenario, but at least we will have a persisting data store also on our MarketPlace Service and not just on our IdentityServer application.
+        - We will configure our DbContext to use Sql instead of InMemory
+        - We will create the schema on our DataBase by adding Migrations to our project 
+        - We will seed the DB with a couple of example products 
+    - We will configure the Authorization by creating 
+        - A ProductOwner Policy 
+        - A ProductOwner Requirement
+        - A ProductOwnerAuthorizationHandler. This handler will succeed only if the ```UserName``` property of the Product being updated/deleted matches the value of the ```name``` claim received in the access_token and the claim has been issued by our own IdentityServer Web Application. 
+    - We will check the ProductOwner Policy on Update eventually denying the user the possibility to complete the action if he's not the product's owner
+    - We will check the ProductOwner Policy on Delete eventually denying the user the possibility to complete the action if he's not the product's owner   
+- JavaScriptClient
+    - We will update the User Interface of the Product Item by adding a userName property to product-item
+    - We will add a userName property to current product of the Vue instance setting it to the logged on user name  
+    - We will pass the Credentials to our MarketPlaceService during update, just like we did during the Create
+    - We will pass the Credentials to our MarketPlaceService during delete, just like we did during the Create
+    - We will make sure that the Update and Delete buttons are shown only if allowed:
+        - We will add a userIsOwner computed property to product-item component
+        - We will show the update and delete buttons of each product-item only if userIsOwner is true
 
-The flow that we're going to use will be as follows:
+## MarketPlaceService
 
-Instead of authenticating the user itself, the Client Application will redirect the user to an Authentication Server, that will provide the user the possibility to
+### Add a UserName property to the Product class 
 
-- Register
-- Login
-- Logout
+We want to set a relationship between a product and its owner. To do that we will add a new property UserName to the Product class.
 
-Once the user is logged on, the Authentication Server will provide a Token that will be used by the Client Application to access the API.
-
-The Authorization System on the Service Application will then use the Token to understand if the User is authorized to perform the actions that the client is requesting and it will grant or deny access. 
-
-## IdentityServer4
-
-Our Authentication System will be a .NET Core Web Application that is going to use IdentityServer4, an Open Source OpenID Connect and OAuth 2.0 framework for .NET. 
-
-IdentityServer4 offers:
-
-- Authentication as a Service
-    - Single sign-on (and out) over multiple application types, allowing for centralized login logic and workflow for all of your applications (web, native, mobile, services).
-- Access Control for APIs
-    - Issue access tokens for APIs for various types of clients, e.g. server to server, web applications, SPAs and native/mobile apps.
-- Federation Gateway
-    - Support for external identity providers like (Azure) Active Directory, Google, Facebook etc. This shields your applications from the details of how to connect to these external providers.
-- Focus on Customization
-    - The most important part - many aspects of IdentityServer can be customized to fit your needs. Since IdentityServer is a framework and not a boxed product or a SaaS, you can write code to adapt the system the way it makes sense for your scenarios.
-
-We are going to follow a series of [Tutorials](https://identityserver4.readthedocs.io/en/release/quickstarts/0_overview.html), mixing and modifying the steps to suit our needs.
-
-### Add A New Identity Server Project
-
-- In the Solution Explorer, right click on the solution and select Add -> New Project
-- Select "ASP.NET Core Web Application (.NET Core)"
-- In the Name textbox, type IdentityServer
-- In the "ASP.NET Core Web Application (.NET Core) - IdentityServer" window, be sure to 
-    - Select ```ASP.NET Core 1.1```
-    - Select the ```Web Application``` Template
-    - Click on ```Change Authentication```
-    - Select ```Individual User Accounts```
-
-By default Visual Studio uses IIS Express to host your web project. This is totally fine, besides that you won’t be able to see the real time log output to the console.
-
-IdentityServer makes extensive use of logging whereas the “visible” error message in the UI or returned to clients are deliberately vague.
-
-It's recommended to run IdentityServer in the console host. You can do this by switching the launch profile in Visual Studio. You also don’t need to launch a browser every time you start IdentityServer - you can turn that off as well.
-
-- In the Solution Explorer, right click your IdentityServer project and select Properties.
-- In the Properties window, select Debug
-- In the Debug tab, under Web Server Settings -> App URL, type ```http://localhost:5002/```
-- In the Profile Dropdown, select IdentityServer
-- Under Web Server Settings -> App URL, type ```http://localhost:5002/```
-
-When you switch to self-hosting, the web server port defaults to 5000. 
-You can configure this in Program.cs - we use the following configuration for the IdentityServer host:
+Open the ```MarketPlaceService/Models/Product.cs``` file and add a UserName property of type String.
 
 ```cs
-public static void Main(string[] args) {
-    var host = new WebHostBuilder()
-        .UseKestrel()
-        .UseUrls("http://localhost:5002")
-        .UseContentRoot(Directory.GetCurrentDirectory())
-        .UseIISIntegration()
-        .UseStartup<Startup>()
-        .UseApplicationInsights()
-        .Build();
-
-    host.Run();
-}
+public string UserName { get; set; }
 ```
 
-Set the IdentityServer project as startup project, by right clicking on the IdentityServer project in the Solution Explorer and selecting Set As Startup Project.
+### Update the Create action to check the UserName property of the product being added
 
-### Add IdentityServer packages
+We may expect the client to send the Product to create already filled up with the correct UserName property, but just to be sure we are going to check if the UserName property matches the Name property of the User.Identity object, rejecting the request if it doesn't.
 
-In the Solution Explorer, right click on the IdentityServer Project / Dependencies and select ```Manage NuGet Packages```. Click on Browse and type ```identityserver4.aspnetidentity```. Select ```IdentityServer4.AspNetIdentity``` package and click Install.
-
-IdentityServer is designed for extensibility, and one of the extensibility points is the storage mechanism used for data that IdentityServer needs. This tutorial shows to how configure IdentityServer to use EntityFramework (EF) as the storage mechanism for this data.
-
-In the Solution Explorer, right click on the Identity Server Project / Dependencies and select ```Manage NuGet Packages```. Click on Browse and type ```identityserver4.entityframework```. Select ```IdentityServer4.EntityFramework``` package and click Install.
-
-We are now going to configure our IdentityServer Framework. We need to specify:
-
-- **ApiResources**: The WebService we want to protect
-- **IdentityResources**: The identity information that we want to disclose to the client (such as UserID and Profile)
-- **Clients**: The JavaScript Application that will request the Token and that will try to access the WebService
-- **Users**: The humans using the Client Application
-
-We will first create a class with static methods that will return the data we need, so that it will be easy to find and eventually modify all the necessary configuration. We will use data returned by its methods to seed the database that will persist the configuration.
-
-### Add a Config Class
-
-In the root of your IdentityServer project, add a new class named ```Config```.
-
-### Resources
-
-Resources are something you want to protect with IdentityServer - either identity data of your users, or APIs.
-
-Every resource has a unique name - and clients use this name to specify to which resources they want to get access to.
-
-Identity data are Identity information (aka claims) about a user, e.g. name or email address.
-
-APIs resources represent functionality a client wants to invoke - typically modelled as Web APIs, but not necessarily.
-
-Scopes define the resources in your system that you want to protect, e.g. APIs.
-
-### Defining the API
-
-All you need to do to add an API is to create an object of type ApiResource and set the appropriate properties.
-
-In your Config class, add the following method:
+Open the ```MarketPlaceService/Controllers/ProductsController.cs```, locate the ```Create``` action and replace the code with the following:
 
 ```cs
-///requires using IdentityServer4.Models;
-public static IEnumerable<ApiResource> GetApiResources() {
-    return new List<ApiResource>{
-        //requires using IdentityModel;
-        new ApiResource("MarketplaceService", "Marketplace Service" ,new [] { JwtClaimTypes.Name})
-    };
-}
-```
-
-### Defining Clients
-
-Clients represent applications that can request tokens from your identityserver.
-
-The details vary, but you typically define the following common settings for a client:
-
-- a unique client ID
-- a secret if needed
-- the allowed interactions with the token service (called a grant type)
-- a network location where identity and/or access token gets sent to (called a redirect URI)
-- a list of scopes (aka resources) the client is allowed to access
-
-A JavaScript client uses the so called *implicit flow* to request an identity and access token from JavaScript.
-
-In your Config class, add the following method:
-
-```cs
-public static IEnumerable<Client> GetClients() {
-    return new List<Client> {
-        new Client {
-            ClientId = "js",
-            ClientName = "JavaScript Client",
-            AllowedGrantTypes = GrantTypes.Implicit,
-            AllowAccessTokensViaBrowser = true,
-
-            RedirectUris =           { "http://localhost:5001/callback.html" },
-            PostLogoutRedirectUris = { "http://localhost:5001/index.html" },
-            AllowedCorsOrigins =     { "http://localhost:5001" },
-
-            //requires using IdentityServer4;
-            AllowedScopes = {
-                IdentityServerConstants.StandardScopes.OpenId,
-                IdentityServerConstants.StandardScopes.Profile,
-                "MarketplaceService"
-            }
-        }
-    };
-}
-```
-
-### Defining identity resources
-
-Identity resources are data like user ID, name, or email address of a user. An identity resource has a unique name, and you can assign arbitrary claim types to it. These claims will then be included in the identity token for the user. The client will use the scope parameter to request access to an identity resource.
-
-The OpenID Connect specification specifies a couple of standard identity resources. The minimum requirement is, that you provide support for emitting a unique ID for your users - also called the subject id. This is done by exposing the standard identity resource called **openid**.
-The IdentityResources class supports all scopes defined in the specification (openid, email, profile, telephone, and address). 
-If you want to support them all, you can add them to your list of supported identity resources.
-We will expose **openid** and **profile**.
-
-In your Config class, add the following method:
-
-```cs
-public static IEnumerable<IdentityResource> GetIdentityResources() {
-    return new List<IdentityResource> {
-        new IdentityResources.OpenId(),
-        new IdentityResources.Profile()
-    };
-}
-```
-
-### Defining users
-
-A user is a human that is using a registered client to access resources.
-
-In your Config class, add the following method:
-
-```cs
-//requires using IdentityServer.Models;
-public static List<ApplicationUser> GetUsers() {
-    return new List<ApplicationUser> {
-        new ApplicationUser {
-            UserName = "alice@gmail.com",
-            Email = "alice@gmail.com"
-        },
-        new ApplicationUser {
-            UserName = "bob@gmail.com",
-            Email = "bob@gmail.com"
-        }
-    };
-}
-```
-
-We will now proceed to add the IdentityServer framework to our application and configure it so that it uses EntityFramework for Users (thanks to Microsoft IdentityFramework), Resources and Clients.
-
-### Configure
-
-IdentityServer uses the usual pattern to configure and add services to an ASP.NET Core host. In ConfigureServices the required services are configured and added to the DI system. In Configure the middleware is added to the HTTP pipeline.
-
-Modify your ConfigureServices method of the Startup.cs file to look like this:
-
-```cs
-public void ConfigureServices(IServiceCollection services) {
-    // Add framework services.
-    services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
-
-    services.AddIdentity<ApplicationUser, IdentityRole>() 
-        .AddEntityFrameworkStores<ApplicationDbContext>()
-        .AddDefaultTokenProviders();
-
-    services.AddMvc();
-
-    // Add application services.
-    services.AddTransient<IEmailSender, AuthMessageSender>();
-    services.AddTransient<ISmsSender, AuthMessageSender>();
-
-    var connectionString = Configuration.GetConnectionString("DefaultConnection"); 
-    //requires using System.Reflection;
-    var migrationsAssembly = typeof(Startup).GetTypeInfo().Assembly.GetName().Name;
+public IActionResult Create([FromBody] Product product) {
+    if (product == null || product.UserName != User.Identity.Name) {
+        return BadRequest();
+    }
     
-    // configure Identity Server with EF stores for users, clients and resources
-    services.AddIdentityServer()
-        .AddTemporarySigningCredential()
-        .AddAspNetIdentity<ApplicationUser>() 
-        .AddConfigurationStore(builder =>
-            builder.UseSqlServer(connectionString, options =>
-                options.MigrationsAssembly(migrationsAssembly)))
-        .AddOperationalStore(builder =>
-            builder.UseSqlServer(connectionString, options =>
-                options.MigrationsAssembly(migrationsAssembly)));
+    _ProductsRepository.Add(product);
+
+    return CreatedAtRoute("GetProduct", new { id = product.Id }, product);
 }
 ``` 
+    
+### Use a Sql Server database 
 
-The ```AddTemporarySigningCredential``` extension creates temporary key material for signing tokens on every start. This might be useful to get started, but needs to be replaced by some persistent key material for production scenarios. See the cryptography docs for more information.
+Let's start by configuring our DbContext to use SqlServer instead of InMemory
 
-The ```AddAspNetIdentity``` extension method is invoked to use the ASP.NET Identity users; it requires a generic parameter which is your ASP.NET Identity user type (the same one needed in the AddIdentity method from the template).
+Add a dependency to the ```Microsoft.EntityFrameworkCore.SqlServer``` package.
 
-The calls to ```AddConfigurationStore``` and ```AddOperationalStore``` are registering the EF-backed store implementations.
+Remove the dependency to the ```Microsoft.EntityFrameworkCore.InMemory``` package.
 
-The "builder" callback function passed to these APIs is the EF mechanism to allow you to configure the ```DbContextOptionsBuilder``` for the ```DbContext``` for each of these two stores. This is how our ```DbContext``` classes can be configured with the database provider you want to use. In this case by calling ```UseSqlServer``` we are using SqlServer. As you can also tell, this is where the connection string is provided.
+ASP.NET Core implements dependency injection by default. Services (such as the EF database context) are registered with dependency injection during application startup. Components that require these services (such as our Repository) are provided these services via constructor parameters. 
 
-The "options" callback function in ```UseSqlServer``` is what configures the assembly where the EF migrations are defined. EF requires the use of migrations to define the schema for the database.
-
-It is the responsibility of your hosting application to define these migrations, as they are specific to your database and provider.
-
-We’ll add the migrations next.
-
-### Adding migrations
-
-**NOTE: ENSURE THAT YOUR PROJECT COMPILES BEFORE CONTINUING WITH THE FOLLOWING STEP**
-
-To create the migrations, open a command prompt in the IdentityServer project directory. In the command prompt run these two commands:
-
-```
-dotnet ef migrations add InitialIdentityServerPersistedGrantDbMigration -c PersistedGrantDbContext -o Data/Migrations/IdentityServer/PersistedGrantDb
-dotnet ef migrations add InitialIdentityServerConfigurationDbMigration -c ConfigurationDbContext -o Data/Migrations/IdentityServer/ConfigurationDb
-```
-
-You should now see a ~/Data/Migrations/IdentityServer folder in the project. This contains the code for the newly created migrations.
-
-### Initialize the database
-
-Now that we have the migrations, we can write code to create the database from the migrations. We will also seed the database with some initial configuration data.
-
-In ```Startup.cs``` add this method to help initialize the database:
+To register MarketPlaceContext as a service, open ```Startup.cs```, locate the ```ConfigureServices``` method and replace the following code 
 
 ```cs
-private void InitializeDatabase(IApplicationBuilder app) {
-    using (var serviceScope = app.ApplicationServices.GetService<IServiceScopeFactory>().CreateScope()) {
-        //let's first ensure that the DB schema matches our DbContexts
-        serviceScope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.Migrate();
-        //requires using IdentityServer4.EntityFramework.DbContexts;
-        serviceScope.ServiceProvider.GetRequiredService<PersistedGrantDbContext>().Database.Migrate();
-
-        var context = serviceScope.ServiceProvider.GetRequiredService<ConfigurationDbContext>();
-        context.Database.Migrate();
-
-        //now let's add the Clients
-        foreach (var client in Config.GetClients()) {
-            var existingClient = context.Clients.FirstOrDefault(c => c.ClientId == client.ClientId);
-            if (existingClient != null)
-                context.Clients.Remove(existingClient);
-            //requires using IdentityServer4.EntityFramework.Mappers;
-            context.Clients.Add(client.ToEntity());
-        }
-        context.SaveChanges();
-
-        //let's add the IdentityResources
-        foreach (var resource in Config.GetIdentityResources()) {
-            var existingIdentityResource = context.IdentityResources.FirstOrDefault(c => c.Name == resource.Name);
-            if (existingIdentityResource != null)
-                context.IdentityResources.Remove(existingIdentityResource);
-            context.IdentityResources.Add(resource.ToEntity());
-        }
-        context.SaveChanges();
-
-        //let's add the ApiResources
-        foreach (var resource in Config.GetApiResources()) {
-            var existingApiResource = context.ApiResources.FirstOrDefault(c => c.Name == resource.Name);
-            if (existingApiResource != null)
-                context.ApiResources.Remove(existingApiResource);
-            context.ApiResources.Add(resource.ToEntity());
-        }
-        context.SaveChanges();
-
-        // let's use Microsoft Identity Framework to add a couple of users
-        //requires using Microsoft.AspNetCore.Identity;
-        var userManager = serviceScope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-
-        foreach (var user in Config.GetUsers()) {
-            userManager.CreateAsync(user, "Pa$$w0rd").Wait();
-            //requires using System.Security.Claims;
-            //requires using IdentityModel;
-            userManager.AddClaimAsync(user, new Claim(JwtClaimTypes.Name, user.Email, JwtClaimTypes.Name)).Wait();
-        }
-    }
-}
+services.AddDbContext<MarketPlaceContext>(opt => opt.UseInMemoryDatabase());
 ```
 
-And then we can invoke this from the Configure method:
+with this:
 
 ```cs
-public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory) {
-    loggerFactory.AddConsole(Configuration.GetSection("Logging"));
-    loggerFactory.AddDebug();
-
-    if (env.IsDevelopment()) {
-        app.UseDeveloperExceptionPage();
-        app.UseDatabaseErrorPage();
-        app.UseBrowserLink();
-    } else {
-        app.UseExceptionHandler("/Home/Error");
-    }
-
-    app.UseStaticFiles();
-
-    // this will do the initial DB population
-    InitializeDatabase(app);
-
-    app.UseIdentity();
-
-    // Add external authentication middleware below. To configure them please see https://go.microsoft.com/fwlink/?LinkID=532715
-    app.UseIdentityServer();
-
-    app.UseMvc(routes => {
-        routes.MapRoute(
-            name: "default",
-            template: "{controller=Home}/{action=Index}/{id?}");
-    });
-}
+services.AddDbContext<MarketPlaceContext>(opt => opt.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
 ```
 
-If you run the server and navigate the browers to ```http://localhost:5002/.well-known/openid-configuration```, you should see the so-called discovery document. This will be used by your clients and APIs to download the necessary configuration data.
-
-### Adding the UI
-
-All the protocol support needed for OpenID Connect is already built into IdentityServer. You need to provide the necessary UI parts for login, logout, consent and error.
-
-We will use an MVC-based sample UI as a starting point.
-
-This UI can be found in the Quickstart UI repo [https://github.com/IdentityServer/IdentityServer4.Samples/tree/release](https://github.com/IdentityServer/IdentityServer4.Samples/tree/release). 
-You can either clone or download this repo and drop the controllers, views, and models into your web application.
-
-- Delete the following folders from your IdentityServer project:
-    - Controllers
-    - Models
-    - Views 
-- Go to the Quickstarts\6_AspNetIdentity\src\IdentityServerWithAspNetIdentity
-- Copy the following folders into your IdentityServer4 project: 
-    - Controllers
-    - Models
-    - Quickstart
-    - Views 
-
-Search ```IdentityServerWithAspNetIdentity``` and replace it with ```IdentityServer``` in all files of your IdentityServer project.
-
-You should be able to run your application and log in with the following credentials:
-
-- UserName: alice@gmail.com
-- Password: Pa$$w0rd
-
-You should also be able to register a new user.
-
-The IdentityServer application is complete. We can now proceed to implement the security bits on our Web Api Project.
-
-## Web API Configuration
-
-Let's add the authentication middleware to our API host. The job of that middleware is to:
-
-- validate the incoming token to make sure it is coming from a trusted issuer
-- validate that the token is valid to be used with this api (aka scope)
-
-Add the following package to your MarketPlaceService project:
-
-```"IdentityServer4.AccessTokenValidation": "1.1.0"```
-
-You also need to add the middleware to your pipeline. It must be added **before** MVC:
-
-```cs
-public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory) {
-    loggerFactory.AddConsole(Configuration.GetSection("Logging"));
-    loggerFactory.AddDebug();
-
-    app.UseCors("default");
-
-    app.UseSwagger();
-
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "MarketPlace API V1");
-    });
-
-    app.UseIdentityServerAuthentication(new IdentityServerAuthenticationOptions {
-        Authority = "http://localhost:5002",
-        RequireHttpsMetadata = false,
-
-        ApiName = "MarketplaceService"
-    });
-
-    app.UseMvc();
-}
-```
-
-### Authorization
-
-Authorization in MVC is controlled through the ```AuthorizeAttribute``` attribute and its various parameters. At its simplest applying the AuthorizeAttribute attribute to a controller or action limits access to the controller or action to any authenticated user.
-
-The following code limits access to the Create Action of our ProductsController.
-
-```cs
-[HttpPost]
-[SwaggerOperation("createProduct")]
-[ProducesResponseType(typeof(Product), StatusCodes.Status201Created)]
-[ProducesResponseType(typeof(void), StatusCodes.Status400BadRequest)]
-//requires using Microsoft.AspNetCore.Authorization;
-[Authorize]
-public IActionResult Create([FromBody] Product product) {
-//the rest of the code that was already there
-```
-
-Now only authenticated users can access the create function.
-
-To test this:
-- Run the IdentityServer by pressing F5
-- Run the MarketplaceService by right clicking on the Solution Explorer -> MarketplaceService Project and selecting Debug -> Start New Instance
-- Run the JavaScriptClient by right clicking on the Solution Explorer -> JavaScriptClient Project and selecting Debug -> Start New Instance
-- Open the Developer Tools by clicking on F12
-- Open the Network traffic Tab
-- Click on the New Product button
-- Insert some values for name, desription and price
-- Click on Save
-
-On the Network tab in the developer tools you should see that the response is a 401 Unauthorized.
-
-## The JavaScript Client
-
-We need to cofigure the JavaScript Client so that the user can login to IdentityServer, invoke the web API with an access token issued by IdentityServer, and logout of IdentityServer.
-
-### Reference oidc-client
-
-In the JavaScriptClient project we need a library that works in JavaScript and is designed to run in the browser. The ```oidc-client``` library is one such library. It is available via NPM, Bower, as well as a direct download from github.
-
-On the Solution Explorer, open the package.json file in your JavaScriptClient project and replace its content with:
+Open the ```appsettings.json``` file and add a connection string as shown in the following example.
 
 ```json
 {
-  "version": "1.0.0",
-  "name": "asp.net",
-  "private": true,
-  "devDependencies": {
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=aspnet-MarketPlaceService;Trusted_Connection=True;MultipleActiveResultSets=true"
   },
-  "dependencies": {
-    "vue": "^2.2.4",
-    "swagger-client": "^2.1.32",
-    "oidc-client": "^1.3.0"
+  "Logging": {
+    "IncludeScopes": false,
+    "LogLevel": {
+      "Default": "Warning"
+    }
   }
 }
 ```
 
-Save the file so that Visual Studio starts downloading the npm package.
+The connection string specifies a SQL Server LocalDB database. LocalDB is a lightweight version of the SQL Server Express Database Engine and is intended for application development, not production use. LocalDB starts on demand and runs in user mode, so there is no complex configuration. By default, LocalDB creates .mdf database files in the ```C:/Users/<user>``` directory
 
-### Authentication class
+### Modify the MarketPlaceContext class
 
-Let's create a JavaScript ApplicationUserManager class that will take care of the client configuration and login / logout of our user. Our class will extend the UserManager class and it will auto configure itself during creation. The UserManager class is included in the oidc-client library and it  manages the OpenID Connect protocol.
+Open the ```MarketPlaceService/Data/MarkePlaceContext.cs``` file and add the following method to the MarketPlaceContext class:
 
-First, add a new ```applicationusermanager.js``` file by right clicking on the Solution Explorer -> ```JavaScriptClient/wwwroot/js/src``` and selecting ```Add New Item```. In the Add New Item window, select ASP.NET Core -> Web -> Scripts -> JavaScript File, type ```applicationusermanager.js``` as file name and click on Add.
-
-In order to extend the UserManager, we first need to import the classes from the oidc-client package.
-Add in ```import``` to the applicationusermanager.js file as follows:
-
-```js
-import * as Oidc from 'oidc-client/lib/oidc-client.js'
+```cs
+protected override void OnModelCreating(ModelBuilder builder) {
+    base.OnModelCreating(builder);
+}
 ```
 
-Now create an ApplicationUserManager class that extends UserManager and add a constructor.
+### Add Migrations
 
-```js
-class ApplicationUserManager extends Oidc.UserManager {
-    constructor() {
+When you develop a new application, your data model changes frequently, and each time the model changes, it gets out of sync with the database. The EF Core Migrations feature enables EF to create and update the database schema.
 
+### Entity Framework Core NuGet packages for migrations
+
+To work with migrations, you can use the Package Manager Console (PMC) or the command-line interface (CLI). These tutorials show how to use CLI commands. 
+
+The EF tools for the command-line interface (CLI) are provided in ```Microsoft.EntityFrameworkCore.Tools.DotNet```. To install this package, add it to the ```DotNetCliToolReference``` collection in the .csproj file, as shown. (The version numbers in this example were current when the tutorial was written.)
+
+```xml
+<ItemGroup>
+  <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="1.0.0" />
+  <DotNetCliToolReference Include="Microsoft.EntityFrameworkCore.Tools.DotNet" Version="1.0.0" />
+</ItemGroup>
+```
+(You can edit the .csproj file by right-clicking the project name in Solution Explorer and selecting Edit MarketPlaceService.csproj.)
+
+Also add ```Microsoft.EntityFrameworkCore.Design``` between the previous item group
+
+```xml
+<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="1.1.1" />
+```
+
+### Create an initial migration
+
+Save your changes and build the project. Then open a command window and navigate to the project folder. Here's a quick way to do that:
+
+In Solution Explorer, right-click the project and choose Open Command Line from the context menu.
+
+Enter the following command in the command window:
+
+```
+dotnet ef migrations add InitialCreate
+```
+
+### Examine the Up and Down methods
+
+When you executed the migrations add command, EF generated the code that will create the database from scratch. This code is in the Migrations folder, in the file named _InitialCreate.cs. The Up method of the InitialCreate class creates the database tables that correspond to the data model entity sets, and the Down method deletes them, as shown in the following example.
+
+```cs
+public partial class InitialCreate : Migration {
+    protected override void Up(MigrationBuilder migrationBuilder) {
+        migrationBuilder.CreateTable(
+            name: "Products",
+            columns: table => new
+            {
+                Id = table.Column<int>(nullable: false)
+                    .Annotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn),
+                Description = table.Column<string>(nullable: true),
+                Name = table.Column<string>(nullable: true),
+                Price = table.Column<decimal>(nullable: false),
+                UserName = table.Column<string>(nullable: true)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("PK_Products", x => x.Id);
+            });
+    }
+
+    protected override void Down(MigrationBuilder migrationBuilder) {
+        migrationBuilder.DropTable(
+            name: "Products");
     }
 }
 ```
 
-Next, we can call the constructor of our UserManager base class. It requires a configuration object. Add this code to configure the UserManager in the constructor of your ApplicationUserManager class:
+Migrations calls the Up method to implement the data model changes for a migration. When you enter a command to roll back the update, Migrations calls the Down method.
 
-```js
-super({
-    authority: "http://localhost:5002",
-    client_id: "js",
-    redirect_uri: "http://localhost:5001/callback.html",
-    response_type: "id_token token",
-    scope: "openid profile MarketplaceService",
-    post_logout_redirect_uri: "http://localhost:5001/index.html"
+This code is for the initial migration that was created when you entered the migrations add InitialCreate command. The migration name parameter ("InitialCreate" in the example) is used for the file name and can be whatever you want. It's best to choose a word or phrase that summarizes what is being done in the migration. For example, you might name a later migration "AddCustomers".
+
+If you created the initial migration when the database already exists, the database creation code is generated but it doesn't have to run because the database already matches the data model. When you deploy the app to another environment where the database doesn't exist yet, this code will run to create your database, so it's a good idea to test it first. 
+
+### Examine the data model snapshot
+
+Migrations also creates a snapshot of the current database schema in Migrations/MarketPlaceContextModelSnapshot.cs. Here's what that code looks like:
+
+```cs
+[DbContext(typeof(MarketPlaceContext))]
+partial class MarketPlaceContextModelSnapshot : ModelSnapshot {
+    protected override void BuildModel(ModelBuilder modelBuilder) {
+        modelBuilder
+            .HasAnnotation("ProductVersion", "1.1.1")
+            .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+
+        modelBuilder.Entity("MarketPlaceService.Models.Product", b => {
+            b.Property<int>("Id")
+                .ValueGeneratedOnAdd();
+
+            b.Property<string>("Description");
+
+            b.Property<string>("Name");
+
+            b.Property<decimal>("Price");
+
+            b.Property<string>("UserName");
+
+            b.HasKey("Id");
+
+            b.ToTable("Products");
+        });
+    }
+}
+```
+
+### Add code to create the database, apply the migrations and initialize the database with test data
+
+In this section, you write a method that is called to create the database, apply every migration and populate it with test data.
+In the Data folder, create a new class file named ```DbInitializer.cs``` and replace the template code with the following code, which causes a database to be created when needed and loads test data into the new database.
+
+```cs
+using MarketPlaceService.Models;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace MarketPlaceService.Data {
+    public static class DbInitializer {
+        public static void Initialize(MarketPlaceContext context) {
+            //using Microsoft.EntityFrameworkCore;
+            context.Database.Migrate();
+
+            // Look for any products.
+            if (context.Products.Any())
+            {
+                return;   // DB has been seeded
+            }
+
+            var products = new Product[] {
+                new Product { Name = "Product 1", Description = "First Sample Product", Price = 1234, UserName="alice@gmail.com" },
+                new Product { Name = "Product 2", Description = "Lorem Ipsum", Price = 555 , UserName="alice@gmail.com"},
+                new Product { Name = "Product 3", Description = "Third Sample Product", Price = 333 , UserName="bob@gmail.com"},
+                new Product { Name = "Product 4", Description = "Fourth Sample Product", Price = 44 , UserName="bob@gmail.com"}
+            };
+
+            foreach (var product in products) {
+                context.Products.Add(product);
+            }
+
+            context.SaveChanges();
+        }
+    }
+}
+```
+
+The code checks if there are any products in the database, and if not, it assumes the database is new and needs to be seeded with test data. It loads test data into arrays rather than ```List<T>``` collections to optimize performance.
+
+In ```Startup.cs```, modify the ```Configure``` method to call this seed method on application startup. First, add the context to the method signature so that ASP.NET dependency injection can provide it to your DbInitializer class.
+
+```cs
+public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, MarketPlaceContext context) {
+```
+
+Then call your ```DbInitializer.Initialize``` method at the end of the ```Configure``` method.
+
+```cs
+app.UseMvc();
+
+DbInitializer.Initialize(context);
+```
+
+### Remove the new Product from the Repository Constructor
+
+We don't need to add a new product every time that our Repository gets created as we did before, so let's remove that. Open the ```MarketPlaceService/Data/ProductsRepository.cs``` file, locate the constructor and remove the following line of code:
+
+```cs
+Add(new Product { Name = "Product 1", Description = "First Sample Product", Price = 1234 });
+```
+
+Now that we have a persistent data store, we can register our Repository as a transient service instead of singleton.
+Open the ```Startup``` class, locate the ```ConfigureServices``` method and replace the following code
+
+```cs
+services.AddSingleton<IProductsRepository, ProductsRepository>();
+```
+
+with this
+
+```cs
+services.AddTransient<IProductsRepository, ProductsRepository>();
+```
+
+## Authorization
+
+Now that the code for our Database is ready, let's proceed to enforce Authorization Policies.
+
+### Custom Policy-Based Authorization
+
+Role authorization and Claims authorization make use of 
+
+- a requirement 
+- a handler for the requirement 
+- a pre-configured policy
+
+These building blocks allow you to express authorization evaluations in code, allowing for a richer, reusable, and easily testable authorization structure.
+
+An *authorization policy* is made up of one or more *requirements* and registered at application startup as part of the Authorization service configuration, in ```ConfigureServices``` in the ```Startup.cs``` file.
+
+Open the ```Startup.cs``` and add the following code at the bottom of the ```ConfigureServices``` method  
+
+```cs
+services.AddAuthorization(options => {
+    options.AddPolicy("ProductOwner", policy => policy.Requirements.Add(new ProductOwnerRequirement()));
 });
-
 ```
 
-The UserManager provides a ```getUser``` API to know if the user is logged into the JavaScript application. It uses a JavaScript Promise to return the results asynchronously. The returned User object has a profile property which contains the claims for the user. Add this code in the constructor of your ApplicationUserManager class to detect if the user is logged into the JavaScript application:
+Here you can see a "ProductOwner" policy is created with a single requirement, that of being the owner of a product, which is passed as a parameter to the requirement. ```ProductOwnerRequirement``` is a class that we will create in a following step, so don't worry if your code does not compile.
 
-```js
-this.getUser().then(user => {
-    if (user)
-        this.log("User logged in", user.profile);
-    else
-        this.log("User not logged in");
-}).catch(error => this.log("Problem trying to read the user", error));
+Policies can usually be applied using the ```Authorize``` attribute by specifying the policy name, but not in this case.
+Our authorization depends upon the resource being accessed. A Product has a UserName property. Only the product owner is allowed to update it or delete it, so the resource must be loaded from the product repository before an authorization evaluation can be made. This cannot be done with an Authorize attribute, as attribute evaluation takes place before data binding and before your own code to load a resource runs inside an action. Instead of declarative authorization, the attribute method, we must use imperative authorization, where a developer calls an authorize function within their own code.
+
+### Authorizing within your code
+
+Authorization is implemented as a service, ```IAuthorizationService```, registered in the service collection and available via dependency injection for Controllers to access.
+
+```cs
+public class ProductsController : Controller {
+    private readonly IProductsRepository _ProductsRepository;
+    IAuthorizationService _authorizationService;
+
+    public ProductsController(IProductsRepository ProductsRepository, IAuthorizationService authorizationService) {
+        _ProductsRepository = ProductsRepository;
+        _authorizationService = authorizationService;
+    }
+    //same code as before
 ```
 
-Now that our constructor is complete, let's add a helper method to log messages to the console.
+The ```IAuthorizationService``` interface has two methods, one where you pass the resource and the policy name and the other where you pass the resource and a list of requirements to evaluate.
+To call the service, load your product within your action then call the AuthorizeAsync, returning a ChallengeResult if the result is false. 
 
-```js
-log(...parameters) {
-    for(const parameter of parameters){
-        let msg;
-        if (parameter instanceof Error) 
-            msg = `Error: ${parameter.message}`;
-        else if (typeof parameter !== 'string') 
-            msg = JSON.stringify(parameter, null, 2);
-        else
-            msg = parameter;
-        console.log(`${msg} \r\n`);
+```cs
+[HttpPut("{id}")]
+[ProducesResponseType(typeof(void), StatusCodes.Status400BadRequest)]
+[ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+[ProducesResponseType(typeof(void), StatusCodes.Status204NoContent)]
+[SwaggerOperation("updateProduct")]
+public IActionResult Update(int id, [FromBody] Product product) {
+    if (product == null || product.Id != id) {
+        return BadRequest();
+    }
+
+    var original = _ProductsRepository.Find(id);
+    if (original == null) {
+        return NotFound();
+    }
+
+    if (!_authorizationService.AuthorizeAsync(User, product, "ProductOwner").Result) {
+        return new ChallengeResult();
+    }
+
+    original.Name = product.Name;
+    original.Description = product.Description;
+    original.Price = product.Price;
+
+    _ProductsRepository.Update(original);
+    return new NoContentResult();
+}
+```
+
+And
+
+```cs
+[HttpDelete("{id}")]
+[ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+[ProducesResponseType(typeof(void), StatusCodes.Status204NoContent)]
+[SwaggerOperation("deleteProduct")]
+public IActionResult Delete(int id) {
+    var product = _ProductsRepository.Find(id);
+    if (product == null) {
+        return NotFound();
+    }
+    if (!_authorizationService.AuthorizeAsync(User, product, "ProductOwner").Result) {
+        return new ChallengeResult();
+    }
+
+    _ProductsRepository.Remove(id);
+    return new NoContentResult();
+}
+```
+
+### Requirements
+
+An authorization requirement is a collection of data parameters that a policy can use to evaluate the current user principal. In our ProductOwner policy the requirement we have is a single parameter, the owner. A requirement must implement ```IAuthorizationRequirement```. This is an empty, marker interface. 
+Create a new Folder ```Authorization``` in your MarketPlaceService project.
+Add a new ```ProductOwnerRequirement``` class and let the class implement the ```IAuthorizationRequirement``` interface by replacing the file content with the following code :
+
+```cs
+using Microsoft.AspNetCore.Authorization;
+namespace MarketPlaceService.Authorization {
+    public class ProductOwnerRequirement : IAuthorizationRequirement {
     }
 }
-
 ```
 
-Next, we want to implement the ```login``` function. The UserManager provides a signinRedirect to log the user in. Add this code to implement the login method in our ApplicationUserManager class:
+A requirement doesn't need to have data or properties.
 
-```js
-async login() {
-    await this.signinRedirect();
-    return await this.getUser();
+### Authorization Handlers
+
+An *authorization handler* is responsible for the evaluation of any properties of a requirement. The authorization handler must evaluate them against a provided ```AuthorizationHandlerContext``` to decide if authorization is allowed. A requirement can have multiple handlers. Handlers must inherit ```AuthorizationHandler<T>``` where ```T``` is the requirement it handles.
+
+In the ```MarketPlaceService/Authorization``` folder, add a ```ProductOwnerAuthorizationHandler``` class and replace its content with the following code:
+
+```cs
+using MarketPlaceService.Models;
+using Microsoft.AspNetCore.Authorization;
+using System.Threading.Tasks;
+
+namespace MarketPlaceService.Authorization {
+    public class ProductOwnerAuthorizationHandler : AuthorizationHandler<ProductOwnerRequirement, Product> {
+        protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, ProductOwnerRequirement requirement, Product resource) {
+            if (!context.User.HasClaim(c => c.Type == JwtClaimTypes.Name && c.Issuer == "http://localhost:5002"))
+                return Task.CompletedTask;
+
+            var userName = context.User.FindFirst(c => c.Type == JwtClaimTypes.Name && c.Issuer == "http://localhost:5002").Value;
+
+            if (userName == resource.UserName)
+                context.Succeed(requirement);
+
+            return Task.CompletedTask;
+        }
+    }
 }
 ```
 
-The UserManager provides a signoutRedirect to log the user out. Let's implement a logout method in our ApplicationUserManager class:
+In the code above we first look to see if the current user principal has a name claim which has been issued by an Issuer we know and trust. If the claim is missing we can't authorize so we return. If we have a claim, we figure out the value of the claim, and if it matches the UserName of the product then authorization has been successful. Once authorization is successful we call context.Succeed() passing in the requirement that has been successful as a parameter.
 
-```js
-async logout() {
-    return await this.signoutRedirect();
-}
+Handlers must be registered in the services collection during configuration. Open the Startup.cs and add this line of code at the bottom of the ```ConfigureServices``` method:
+
+```cs
+//requires using Microsoft.AspNetCore.Authorization;
+//requires using MarketPlaceService.Authorization;
+services.AddSingleton<IAuthorizationHandler, ProductOwnerAuthorizationHandler>();
 ```
 
-At the bottom of our applicationusermanager.js file, after the closing bracket of the ApplicationUserManager class, let's register a global ```authenticationManager``` constant  and export it so that it can be used wherever necessary:
+Each handler is added to the services collection by using ```services.AddSingleton<IAuthorizationHandler, YourHandlerClass>();``` passing in your handler class.
 
-```js
-const applicationUserManager = new ApplicationUserManager();
-export { applicationUserManager as default };
+We are now ready to move to the JavaScriptClient
+
+## JavaScriptClient
+
+
+### Udate the User Interface of the Product Item 
+
+Let's show the userName property on the product-item template.
+
+Open ```JavaScriptClient/wwwroot/js/src/ProductItem.vue```, locate the ```<template>``` section and add a new paragraph at the end of the card block to display the ```prod.userName``` property:
+
+```html
+<div class="card-block">
+    <h4 class="card-title">{{prod.name}}</h4>
+    <h6 class="card-subtitle mb-2 text-muted">{{prod.price}}</h6>
+    <p class="card-text">{{prod.description}}</p>
+    <p class="card-text text-muted">{{prod.userName}}</p>
+</div>
 ```
 
-Our class is complete. Let's use it in the DataLayer.
+- Run Webpack by opening a command prompt on the JavaScript project where your ```webpack.config.js``` is located and typing ```webpack```
+- Run the IdentityServer by pressing F5
+- Run the MarketplaceService by right clicking on the Solution Explorer -> MarketplaceService Project and selecting Debug -> Start New Instance
+- Run the JavaScriptClient by right clicking on the Solution Explorer -> JavaScriptClient Project and selecting Debug -> Start New Instance
+- Notice the user name showing up in each product
 
-The User object obtained through the getUser in the above code also has an ```access_token``` property which can be used to authenticate with a web API. The ```access_token``` will be passed to the web API via the Authorization header with the Bearer scheme. 
-What we need to do next is to add the bearer token to our invocation in the createProduct in the DataLayer. 
+## Add a userName property to current product of the App component and initialize it with an empty string  
 
-Open the ```JavaScriptClient/wwwroot/js/src/datalayer.js``` file.
+Open the ```JavaScriptClient/wwwroot/js/src/App.vue```.
 
-At the beginning of the file, add an ```import``` to reference our new applicationUserManager object.
+Add an ```import``` statement at the beginning of the ```<script>``` section to reference the ```applicationUserManager``` object.
 
 ```js
 import applicationUserManager from "./ApplicationUserManager"
 ```
 
-Replace the ```insertProduct``` method with the following code: 
+Locate the ```data``` function and replace the ```current``` property with the following code:
+ 
+```js
+current: { id: 0, name: "", description: "", price: 0, userName: ""},
+```
+
+Update the ```current.userName``` during startup by modifying the ```mounted``` method as follows:
 
 ```js
-async insertProduct(product) {
+async mounted () {
+    this.products = await new DataLayer().getAllProducts(); 
+
+    let user = await applicationUserManager.getUser();
+    this.current.userName = user && user.profile && user.profile.name ? user.profile.name : "" ;
+}
+```
+
+Modify the ```add``` method as follows:
+
+```js
+async add() {
+    let user = await applicationUserManager.getUser();
+    this.current = { id: 0, brand: "", name: "", price: 0, userName: user && user.profile && user.profile.name ? user.profile.name : "" };
+    this.isFormInUse = true;
+}
+```
+
+Modify the ```cancel``` method as follows:
+
+```js
+async cancel(product) {
+    if (product.id == 0) {
+        let user = await authenticationManager.getUser();
+        this.current.id = 0;
+        this.current.name = "";
+        this.current.description = "";
+        this.current.price = 0;
+        this.current.userName = user && user.profile && user.profile.name ? user.profile.name : "";
+    } else {
+        const p = await new DataLayer().getProductById(product.id);
+        this.current.id = p.id;
+        this.current.name = p.name;
+        this.current.description = p.description;
+        this.current.price = p.price;
+        this.current.userName = p.userName;
+    }
+    this.isFormInUse = false;
+}
+```
+
+### Pass the Credentials to our MarketPlaceService during update
+
+Just like we did during the Create phase, we need to add the Bearer token to the header of our request during the update invocation. 
+
+Open the ```JavaScriptClient/wwwroot/js/src/datalayer.js``` file and replace the ```updateProduct``` method with the following code:
+
+```js
+async updateProduct(id, product) {
     const user = await applicationUserManager.getUser();
     const client = await new Swagger({
         url: this.url,
         usePromise: true
     });
-    const data = await client.Products.createProduct({ product }, {
+
+    const data = await client.Products.updateProduct({ id, product }, {
         clientAuthorizations: {
             api_key: new Swagger.ApiKeyAuthorization('Authorization', 'Bearer ' + user.access_token, 'header')
         }
@@ -623,227 +556,82 @@ async insertProduct(product) {
 }
 ```
 
-We now want to give the user the chance to log on. We need a button and a method for that.
+### Pass the Credentials to our MarketPlaceService during delete
 
-### Add a login button to the navigation bar
-
-Open the ```CommandBar.vue``` Vue Component, locate the div component with the ```commandBar``` id and replace it with the following code:
-
-```html
-<div class="collapse navbar-collapse" id="commandBar">
-    <div class="form-inline my-2 my-lg-0">
-        <button class="btn btn-primary" v-on:click="add" v-bind:disabled="isFormInUse">New Product</button>
-    </div>
-
-    <div class="form-inline my-2 my-lg-0">
-        <button id="login" v-on:click="login" class="btn btn-secondary">Login</button>
-    </div>
-</div>
-```
-
-### Import tha applicationUserManager in the CommandBar
-
-At the top of the ```<script>``` section of the ```CommandBar``` component, add in ```import``` statement to make use of the ```applicationUserManager``` object.
+Now replace the ```deleteProduct``` with the following code
 
 ```js
-import applicationUserManager from "./ApplicationUserManager"
-```
-### Add a login method to the CommandBar 
-
-Locate the ```methods``` property of the ```CommandBar``` and add a new method:
-
-```js
-async login() {
-    let user = await applicationUserManager.login();
-}
-```
-
-### callback.html
-
-This HTML file is the designated ```redirect_uri``` page once the user has logged into IdentityServer. It will complete the OpenID Connect protocol sign-in handshake with IdentityServer. The code for this is all provided by the UserManager class we used earlier. Once the sign-in is complete, we can then redirect the user back to the main index.html page. 
-
-Locate the file called oidc-client.js in the ~/node_modules/oidc-client/dist folder and copy it into your application’s ~/wwwroot/js folder.
-
-In the ```JavaScriptClient/wwwroot``` folder, create a new HTML page named ```callback.html```.
-Replace its content with the following code to complete the signin process:
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <title></title>
-</head>
-<body>
-    <script src="js/oidc-client.js"></script>
-    <script>
-        new Oidc.UserManager().signinRedirectCallback().then(function () {
-            window.location = "index.html";
-        }).catch(function (e) {
-            console.error(e);
-        });
-    </script>
-</body>
-</html>
-```
-
-We are ready to test the login process and the creation of a new product.
-
-- Run webpack by opening a command line on the JavaScriptClient project where your webpack.config.js is located and typing ```webpack```
-- Run the IdentityServer by going back to Visual Studio and pressing F5
-- Run the MarketplaceService by right clicking on the Solution Explorer -> MarketplaceService Project and selecting Debug -> Start New Instance
-- Run the JavaScriptClient by right clicking on the Solution Explorer -> JavaScriptClient Project and selecting Debug -> Start New Instance
-- Open the Developer Tools by clicking on F12
-- Click on the New Product button
-- Insert some values for name, description and price
-- Click on Save
-    - The product is not added
-- Click on the Login Button
-    - You get redirected to the login action in the IdentityServer 
-    - Login with a ```bob@gmail.com``` username and a ```Pa$$w0rd``` password
-    - You get asked for consent to share your data with the Client. Click on Allow. 
-    - You get briefly redirected to the ```callback.html``` page and then the ```index.html```
-- Click on the New Product button
-- Insert some values for name, description and price
-- Click on Save
-    - The product shows up as a new product
-
-### Show the New Product button only if the user is authenticated
-
-As a visual help to the user, we want to make sure to display the ```New Product``` button only if the user is authenticated. In order to do that we need to add an ```isUserAuthenticated``` boolean property to our CommandBar component and then render the button only when the value of this property is ```true```. We will set the property by checking if the user returned by the applicationUserManager.getUser() is not null. 
-
-Let's start by adding a new data property that we will link to the DOM.
-
-```js
-import applicationUserManager from "./ApplicationUserManager"
-export default {
-    props: ['isFormInUse'],
-    data() {
-        return {
-            userAuthenticated: false
+async deleteProduct(id) {
+    const user = await applicationUserManager.getUser();
+    const client = await new Swagger({
+        url: this.url,
+        usePromise: true
+    });
+    const data = client.Products.deleteProduct({ id }, {
+        clientAuthorizations: {
+            api_key: new Swagger.ApiKeyAuthorization('Authorization', 'Bearer ' + user.access_token, 'header')
         }
-    }
-    // ...the code that was here before
-```
-
-Now let's check again during startup and eventually refresh our property:
-
-```js
-async mounted() {
-    let user = await applicationUserManager.getUser();
-    this.userAuthenticated = user && user.profile && user.profile.name ? true : false;
-}
-// ...the code that was here before
-``` 
-
-Let's also modify the login method to update the property if needed:
-
-```js
-async login() {
-    let user = await applicationUserManager.login();
-    this.userAuthenticated = user && user.profile && user.profile.name ? true : false;
+    });
+    return data.obj;
 }
 ```
 
-Now let's bind the DOM to the property by modifying the New Product button:
+### Show Update and Delete buttons on each product only if allowed
 
-```html
-<button v-if="userAuthenticated" class="btn btn-primary" v-on:click="add" v-bind:disabled="isFormInUse">New Product</button>
+Open the ```JavaScriptClient/wwwroot/js/src/ProductItem.vue``` component.
+
+Add an ```import``` statement at the beginning of the ```<script>``` section
+
+```js
+import applicationUserManager from "./ApplicationUserManager"
 ```
 
-We are ready to test the login process and the creation of a new product.
-
-- Run webpack by opening a command line on the JavaScriptClient project where your webpack.config.js is located and typing ```webpack```
-- Run the IdentityServer by pressing F5
-- Run the MarketplaceService by right clicking on the Solution Explorer -> MarketplaceService Project and selecting Debug -> Start New Instance
-- Run the JavaScriptClient by right clicking on the Solution Explorer -> JavaScriptClient Project and selecting Debug -> Start New Instance
-- There is no New Product button
-- Click on the Login Button
-- After a couple of quick redirect, tha index.html is shown and the New Product is visible
-- Click on the New Product button
-- Insert some values for name, description and price
-- Click on Save
-    - The product shows up as a new product
-
-### Add a Logout button and show the login / logout only if necessary
-
-As an excercise, try to add a logout button that invokes a logout method when clicked. Make sure that both the login and the logout button are rendered only if necessary. See if you can also show the user name in the logout button text. Hint: you may need another data property.
-
-When you're done, continue reading this document.
-
-Modify the ```CommandBar.vue``` template as follows:
-
-```html
-<button id="login" v-if="!isUserAuthenticated" v-on:click="login" class="btn btn-secondary">Login</button>
-<button id="logout" v-if="isUserAuthenticated" v-on:click="logout" class="btn btn-secondary">Hello {{userName}} - Logout</button>
-``` 
-
-Add a new ```userName``` data property and initialize it as an empty string:
+Add a ```userIsOwner``` data property and initialize it to false:
 
 ```js
 data() {
     return {
-        userAuthenticated: false,
-        userName : ""
+        userIsOwner: false
     }
 }
 ```
 
-Refresh the property during startup by modifying the ```mounted``` method as follows:
+Update the ```userIsOwner``` during startup:
 
 ```js
 async mounted() {
     let user = await applicationUserManager.getUser();
-    this.userAuthenticated = user && user.profile && user.profile.name ? true : false;
-    this.userName = user && user.profile && user.profile.name ? user.profile.name : "";
+    this.userIsOwner = user != undefined && user.profile.name == this.prod.userName;
 }
 ```
 
-Refresh the property during login by modifying the ```login``` method as follows:
+Modify the two buttons in the ```<template>``` section as follows:
 
-```js
-async login() {
-    let user = await applicationUserManager.login();
-    this.userAuthenticated = user && user.profile && user.profile.name ? true : false;
-    this.userName = user && user.profile && user.profile.name ? user.profile.name : "";
-}
-```
-
-Add a new ```logout``` method to invoke the applicationUserManager.logout() method and refresh the ```userAuthenticated``` and ```userName``` properties
-
-```js
-async logout() {
-    await applicationUserManager.logout();
-    this.userAuthenticated = false;
-    this.userName = "";
-}
+```html
+<div class="card-footer">
+    <button v-if="userIsOwner" class="btn btn-secondary" v-on:click="select" v-bind:disabled="buttonsDisabled">Select</button>
+    <button v-if="userIsOwner" class="btn btn-danger" v-on:click="remove" v-bind:disabled="buttonsDisabled">Delete</button>
+</div>
 ```
 
 We are ready to test the page.
 
-- Run webpack by opening a command line on the JavaScriptClient project where your webpack.config.js is located and typing ```webpack```
+- Run Webpack by opening a command prompt on the JavaScript project where your ```webpack.config.js``` is located and typing ```webpack```
 - Run the IdentityServer by pressing F5
 - Run the MarketplaceService by right clicking on the Solution Explorer -> MarketplaceService Project and selecting Debug -> Start New Instance
 - Run the JavaScriptClient by right clicking on the Solution Explorer -> JavaScriptClient Project and selecting Debug -> Start New Instance
-- There is no New Product button and no Logout button, but the Login button is visible
-- Click on the Login Button
-- After a couple of quick redirect, the index.html is shown and 
-    - The New Product is visible
-    - The Logout Button is visible
-    - The name of the logged on user is shown
-    - The Login Button is not visible
-- Click on the Logout button
-- Logout from IdentityServer
-- Return to http://localhost:5001
-- There is no New Product button and no Logout button, but the Login button is visible
-    
+- If you're not logged on you should not see any Add, Select nor Delete button
+- Log on as bob@gmail.com / Pa$$w0rd
+- You should now see the New Product button, while Select and Delete are visible only on the product items where the user name is bob@gmail.com and not on those added by alice@gmail.com
+- Add a new product. You should succeed.
+- Select a product created by bob@gmail.com and modify it. You should succeed.
+- Delete a product created by bob@gmail.com. You should succeed.       
 
-Our Create operation is now protected, but we still did not protect the edit and delete operations. This is what we're going to do on our next and last lab.
+This concludes our walkthrough.
 
 # Next steps
 
 ```
 git add .
-git commit -m "student: step 6 complete"
-git checkout step07start
+git commit -m "student: step 7 complete"
 ```
