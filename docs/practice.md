@@ -1,836 +1,273 @@
-# Lab 04 - Styling the View
+# Lab 05 - Swagger and Swashbuckle
 
-We will now proceed to improve the appearance of the user interface through the use of [Bootstrap 4](https://v4-alpha.getbootstrap.com/), which is in its aplha 6 version as of the writing of this document (April 2017).  
+We are now going to implement the Swagger Specification on our Web Api, generate API documentation, including a UI to explore and test operations, directly from our controller, by using ```Swashbuckle.AspNetCore```.
 
-We are going to modify the HTML of our Vue components to use the structure and css classes required by Bootstrap to style our UI. Much of the HTML we have written so far is enclosed between quotes, which makes it difficult to understand because we have no color coding, no intellisense, no auto complete and so on. This is why, before starting with Bootstrap, we also will modify our code by using Single File Vue Components, which will get us a much better support from Visual Studio. 
+Once we have an API that can describe itself in Swagger, we are going to change our client data layer using the Swagger JS library, the Swagger javascript client for use with swagger enabled APIs, the fastest way to enable a javascript client to communicate with a swagger-enabled server.    
 
-With .vue components, we’re entering the realm of advanced JavaScript applications. That means learning to use a few additional tools if you haven’t already:
-- Node Package Manager (NPM): Read the Getting Started guide through section 10: Uninstalling global packages.
-- Modern JavaScript with ES2015/16: Read through Babel’s Learn ES2015 guide. You don’t have to memorize every feature right now, but keep this page as a reference you can come back to.
+## Swagger
 
-We are going to use Webpack, a module bundler that takes a number of “modules” and then bundles them into your final application. 
-In Webpack, each module can be transformed by a “loader” before being included in the bundle, and Vue offers the vue-loader plugin to take care of translating .vue single-file components.
+The Swagger Specification creates the RESTful contract for your API, detailing all of its resources and operations in a human and machine readable format for easy development, discovery, and integration.
 
-Babel will allow us to use ES2015 syntax.
+## Swashbuckle.AspNetCore
 
-## Setting up webpack and Babel
+### Getting Started
 
-### Download the packages
+Install the standard Nuget package (currently pre-release) into your MarketPlaceService application.
 
-In the Solution Explorer, open the package.json file in the JavaScriptClient project. Replace the ```devDependencies``` element with the following code:
-
-```json
-"devDependencies": {
-   "babel-core": "^6.24.0",
-   "babel-loader": "^6.4.1",
-   "babel-preset-env": "^1.3.2",
-   "babel-polyfill": "^6.23.0",
-   "webpack": "^2.3.3",
-   "vue-loader": "^11.3.4",
-   "vue-template-compiler": "^2.2.6"
- }
- ```
-
-Ensure to save the file so that Visual Studio starts downloading the packages.
-
-### Configure Webpack
-
-We now need to configure WebPack. We will indicate:
-
-- the entry point of our application (a file we still have to create, we'll do it later)
-- the output to produce (the file that we will add to our index.html page instead of the js we added so far)
-- which loaders to use (vue-loader for .vue files and babel-loader for .js files)
-
-In the root of your JavaScriptClient project, add a new JavaScript file named ```webpack.config.js``` and replace its content with the following code:
-
-```js
-var path = require('path')
-var webpack = require('webpack');
-
-module.exports = {
-    entry: ['babel-polyfill','./wwwroot/js/src/main.js'],
-    output: {
-        path: path.resolve(__dirname, './wwwroot/js/dist'),
-        filename: 'bundle.js'
-    },
-    module: {
-        rules: [
-            {
-                test: /\.vue$/,
-                loader: 'vue-loader'
-            },
-            {
-                test: /\.js$/,
-                loader: 'babel-loader',
-                exclude: /node_modules/
-            }
-        ]
-    },
-    resolve: {
-        alias: {
-            'vue$': 'vue/dist/vue.esm.js'
-        }
-    },
-    devtool: 'source-map'
-}
+```
+Install-Package Swashbuckle.AspNetCore -Pre
 ```
 
-### Configure Babel
+In the ```ConfigureServices``` method of ```Startup.cs```, register the Swagger generator, defining one or more Swagger documents.
 
-We now need to configure Babel so that it can use the Env preset, which automatically determines the Babel plugins you need based on your supported environments. 
-
-In the root of your JavaScriptClient project, add a json file named ```.babelrc``` and replace its content with the following code:
-
-```json
+```cs
+///requires using Swashbuckle.AspNetCore.Swagger;
+services.AddSwaggerGen(c =>
 {
-  "presets": ["env"]
+    c.SwaggerDoc("v1", new Info { Title = "MarketPlace APIs", Version = "v1" });
+});
+```
+
+In the ```Configure``` method, insert middleware to expose the generated Swagger as JSON endpoint(s)
+
+```cs
+app.UseSwagger();
+```
+
+At this point, you can spin up your application and view the generated Swagger JSON at "/swagger/v1/swagger.json"
+
+Insert the swagger-ui middleware to expose interactive documentation, specifying the Swagger JSON endpoint(s) to power it from.
+
+```cs
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "MarketPlace API V1");
+});
+```
+
+Now you can restart your application and check out the auto-generated, interactive docs at "/swagger".
+
+By default, Swashbuckle will generate a "200" response for each operation. If the action returns a response DTO, then this will be used to generate a "schema" for the response body. We need to specify a different status code and/or additional responses, because some of our actions return IActionResult instead of a response DTO. We can describe explicit responses with the ```ProducesResponseTypeAttribute``` that ships with ASP.NET Core.
+
+Open your ```ProductsController``` in the MarketPlaceService / Controllers folder and find the ```GetAll``` action. Annotate the method with the following attribute:
+
+```cs
+///requires using Microsoft.AspNetCore.Http;
+[ProducesResponseType(typeof(IEnumerable<Product>), StatusCodes.Status200OK)]
+```    
+
+Annotate the ```GetById``` Action with the following attributes:
+
+```cs
+[ProducesResponseType(typeof(Product), StatusCodes.Status200OK)]
+[ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+```
+
+Annotate the ```Create``` Action with the following attributes:
+
+```cs
+[ProducesResponseType(typeof(Product), StatusCodes.Status201Created)]
+[ProducesResponseType(typeof(void), StatusCodes.Status400BadRequest)]
+```
+
+Annotate the ```Update``` Action with the following attributes:
+
+```cs
+[ProducesResponseType(typeof(void), StatusCodes.Status400BadRequest)]
+[ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+[ProducesResponseType(typeof(void), StatusCodes.Status204NoContent)]
+```
+
+Annotate the ```Delete``` Action with the following attributes:
+
+```cs
+[ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+[ProducesResponseType(typeof(void), StatusCodes.Status204NoContent)]
+```
+
+Run the application and navigate to ```http://localhost:5000/swagger/#/Products```. You will see that every operations has multiple Response Messages.
+
+Let's also specify that our API produces JSON. 
+
+Open the ```ProductsController``` and decorate the class definition with the following attribute:
+
+```cs
+[Produces("application/json")]
+```
+
+Navigate to ```http://localhost:5000/swagger/v1/swagger.json```. You will notice that the Operation IDs are the following:
+
+- /api/Products/{id} (get): ApiProductsByIdGet
+- /api/Products (get) : ApiProductsGet
+- post: ApiProductsPost
+- put: ApiProductsByIdPut
+- delete: ApiProductsByIdDelete
+
+This means that the client generated by the Swagger JS library will have methods with these names. It's not really ideal, so let's improve it by using the ```SwaggerOperation``` attribute.
+
+Open your ProductsController.cs, find the ```GetAll``` Action and decorate it with the following attribute:
+
+```cs
+//requires using Swashbuckle.AspNetCore.SwaggerGen;
+[SwaggerOperation("getProducts")]
+```
+
+Open your ProductsController.cs, find the ```GetById``` Action and decorate it with the following attribute:
+
+```cs
+[SwaggerOperation("getProduct")]
+```
+
+Open your ProductsController.cs, find the ```Create``` Action and decorate it with the following attribute:
+
+```cs
+[SwaggerOperation("createProduct")]
+```
+
+Open your ProductsController.cs, find the ```Update``` Action and decorate it with the following attribute:
+
+```cs
+[SwaggerOperation("updateProduct")]
+```
+
+Open your ProductsController.cs, find the ```Delete``` Action and decorate it with the following attribute:
+
+```cs
+[SwaggerOperation("deleteProduct")]
+```
+
+Now the Operations IDs listed on the http://localhost:5000/swagger/v1/swagger.js file are the ones we added on the attributes.
+
+### The JavaScriptClient
+
+We are now ready to switch to our JavaScriptClient project to improve the DataLayer class.
+
+We will use Swagger Js, a javascript library to connect to swagger-enabled APIs via browser or node.js.
+
+Open the JavaScriptClient ```package.json``` file. Modify the ```dependencies``` section as follows:
+
+```json
+"dependencies": {
+    "vue": "^2.2.4",
+    "swagger-client" : "^2.1.32"
+}
+``` 
+
+**IMPORTANT: Swashbuckle is not yet compatible with swagger-client 3. Add Version 2.1.32 and NOT version 3** 
+
+Save the file in order for Visual Studio to download the package.
+
+Now add a reference to the script in your ```DataLayer.js``` page. 
+In the Solution Explorer, open the ```JavaScriptClient/wwwroot/js/src/datalayer.js``` file. At the top of the bage, before the declaration of the class, add the following code:
+
+```js
+import Swagger from "swagger-client"
+```
+
+Now let's update the rest of the code of out ```DataLayer``` to use SwaggerClient.
+
+First of all, the url that we're going to call is not the one of the service but the one of the swagger.js file that will provide the documentation for our service.
+
+```js
+this.serviceUrl = "http://localhost:5000/api/products";
+```
+
+with this code
+
+```js
+this.url = `http://localhost:5000/swagger/v1/swagger.json`;
+```
+
+We're going to update all our methods to use an instance of a SwaggerClient instead of a fetch.
+
+- A ```SwaggerClient``` instance requires an ```options``` object in the constructor, where we can pass 
+    - the ```url``` of the description document 
+    - the fact that we want to ```use promises``` (as we already did using the fetch method) 
+- The SwaggerClient constructor will asynchronously navigate to given the url and return a promise
+    - We will continue with a ```then``` method
+    - We will receive a dynamically generated ```client``` object, into which we will find properties that mimic our services (```Products``` and ```Values```)
+    - The ```Products``` property will have the methods we described on our service (```getProducts```, ```getProduct```, ```createProduct```, ```updateProduct``` and ```deleteProduct```)
+    - We will invoke those methods, eventually passing objects with additional data if necessary (the id and / or the product object we need to send to the service) 
+    - Each of these methods will in turn return a promise 
+        - We can again continue with a ```then``` 
+        - We can get the result in a ```data``` parameter injected in our continuation method 
+        - The ```data``` parameter has an ```obj``` property where we can find the deserialized result (which could be an array of products, a product, or nothing depending on the method we invoked).
+
+Let's start by modifying the ```getAllProducts``` method by replacing its content with:
+
+```js
+getAllProducts() {
+    return new Swagger({
+        url: this.url,
+        usePromise: true
+    }).then(client => client.Products.getProducts())
+    .then(data => data.obj);
 }
 ```
 
-## Split our view into Single Page Vue Components
-
-We will now split our viewmodel.js into multiple .vue file, plus one main.js that will create the Vue Instance. 
-
-A *.vue file is a custom file format that uses HTML-like syntax to describe a Vue component. Each *.vue file consists of three types of top-level language blocks: <template>, <script>, and <style>, and optionally additional custom blocks.
-
-Into your ```JavaScriptClient/wwwroot/js``` folder, create a new folder ```src```
-
-### ProductItem Component
-
-Into the ```JavaScriptClient/wwwroot/js/src``` folder, create a new ProductItem.vue file.
-
-Create two sections, one for the template and one for the script:
-
-```html
-<template></template>
-
-<script></script>
-```
-
-Now open the viewmodel.js file, select the template content of the product-item component and paste it in the ```<template>``` section of the new component:
-
-```html
-<template>
-    <article>
-        {{ prod.id }} - {{prod.name}} - {{prod.description}} - {{prod.price}}
-        <button v-on:click="select" v-bind:disabled="buttonsDisabled">Select</button>
-        <button v-on:click="remove" v-bind:disabled="buttonsDisabled">Delete</button>
-    </article>
-</template>
-```
-
-Now copy the ```props``` and ```methods``` of the ```product-item``` from ```viewmodel.js``` to the ```<script>``` section of ```ProductItem.vue```, surrounding it in an ```export default {}``` component:
-
-```html
-<script>
-    export default {
-        props: ['prod', 'buttonsDisabled'],
-        methods: {
-            select() {
-                this.$emit('selected', this.prod);
-            },
-            remove() {
-                this.$emit('deleting', this.prod);
-            }
-        }
-    }
-</script>
-```
-
-### ProductForm
-
-The first Vue Component is ready. Let's create the ProductForm.
-In your ```JavaScriptClient/wwwroot/js/src``` folder, create a ```ProductForm.vue``` and replace its code with the following:
-
-```html
-<template>
-
-</template>
-
-<script>
-    export default {
-
-    }
-</script>
-```
-
-Now open the viewmodel.js file, select the template content of the product-form component and paste it in the ```<template>``` section of the new component:
-
-```html
-<template>
-    <div>
-        <input v-model="product.name" type="text" placeholder="name" />
-        <input v-model="product.description" type="text" placeholder="description" />
-        <input v-model:number="product.price" type="text" placeholder="price" />
-        <button v-on:click="save">Save</button>
-        <button v-on:click="cancel">Cancel</button>
-    </div> 
-</template>
-```
-Now copy the ```props``` and ```methods``` of the ```product-form``` from ```viewmodel.js``` to the ```<script>``` section of ```ProductForm.vue```:
-
-```html
-<script>
-    export default {
-        props: ['product'],
-        methods: {
-            save: function () {
-                this.$emit('saving', this.product);
-            },
-            cancel: function () {
-                this.$emit('cancel', this.product);
-            }
-        }
-    }
-</script>
-```
-
-### App
-
-Now let's create an App Vue Component, that will include ProductItem and ProductForm.
-
-In your ```JavaScriptClient/wwwroot/js/src``` folder, create an ```App.vue``` and replace its code with the following:
-
-```html
-<template>
-
-</template>
-
-<script>
-    
-</script>
-```
-
-Now open your ```index.html```, select the content of the ```<body>``` section and copy the code into the ```<template>``` section of your App.js.
-
-```html
-<template>
-    <div id="app">
-        <button v-on:click="add" v-bind:disabled="isFormInUse">New Product</button>
-
-        <product-form v-if="isFormInUse" v-bind:product="current" v-on:saving="productSaving" v-on:cancel="cancel"></product-form>
-
-        <section>
-            <product-item v-for="product in products" v-bind:prod="product" v-bind:buttons-disabled="isFormInUse" :key="product.id" v-on:selected="productSelected" v-on:deleting="productDeleting"></product-item>
-        </section>
-    </div>
-</template>
-```
-
-Now we need to fill the ```<script>``` section with the content of our old Vue instance, but we will have to make some changes:
-- The component won't have an ```el``` property but a ```name``` property
-- The ```data``` property will be a function that returns an object
-- We will add a ```components``` property to reference the two Vue Component we just made
-- We will import those components and the datalayer so that webpack can pass them to the loader and add the transpiled version into the bundle
-
-This means that the ```<script>``` section becomes as follows:
-
-```html
-<script>
-    import DataLayer from "./datalayer"
-    import ProductForm from './ProductForm.vue'
-    import ProductItem from './ProductItem.vue'  
-
-    export default {
-        name: 'app',
-        data() {
-            return {
-                products: [],
-                current: { id: 0, name: "", description: "", price: 0 },
-                isFormInUse: false
-            }
-        },
-        mounted () {
-            new DataLayer()
-                .getAllProducts()
-                .then(products => this.products = products);
-        },
-        methods: {
-            productSelected (selectedProduct) {
-                this.current = selectedProduct;
-                this.isFormInUse = true;
-            },
-            productSaving (productToSave) {
-                if (productToSave.id == 0) {
-                    new DataLayer().insertProduct(productToSave)
-                        .then(product => {
-                            this.products.push(product);
-                        });
-                } else {
-                    new DataLayer().updateProduct(productToSave.id, productToSave);
-                }
-                this.isFormInUse = false;
-            },
-            add () {
-                this.current = { id: 0, brand: "", name: "", price: 0 };
-                this.isFormInUse = true;
-            },
-            productDeleting (product) {
-                new DataLayer().deleteProduct(product.id)
-                    .then(() => this.products.splice(this.products.indexOf(product), 1));
-            },
-            cancel(product) {
-                if (product.id == 0) {
-                    this.current.id = 0;
-                    this.current.name = "";
-                    this.current.description = "";
-                    this.current.price = 0;
-                } else {
-                    new DataLayer().getProductById(product.id).then(p => {
-                        this.current.id = p.id;
-                        this.current.name = p.name;
-                        this.current.description = p.description;
-                        this.current.price = p.price;
-                    });
-                }
-                this.isFormInUse = false;
-            }
-        },
-        components: {
-            ProductForm,
-            ProductItem
-        }
-    }
-</script>
-``` 
-
-Now we need to create a Vue Instance to render our App component.
-
-Vue recommends using templates to build your HTML in the vast majority of cases. There are situations however, where you really need the full programmatic power of JavaScript. That’s where you can use the render function, a closer-to-the-compiler alternative to templates.
-
-In your ```JavaScriptClient/wwwroot/js/src```, create a ```main.js``` file and replace its content with the following code:
+Replace the content of the ```getProductById``` method with
 
 ```js
-import Vue from 'vue'
-import App from './App.vue'
-
-new Vue({
-    el: '#app',
-    render: h => h(App)
-})
+getProductById(id) {
+    return new Swagger({
+        url: this.url,
+        usePromise: true
+    }).then(client => client.Products.getProduct({ id }))
+    .then(data => data.obj);
+}
 ```
 
-### DataLayer.js
-
-Let's export the definition of our DataLayer class.
-First, move ```JavaScriptClient/wwwroot/js/datalayer.js``` to the ```JavaScriptClient/wwwroot/js/src``` folder.
-
-Now open ```JavaScriptClient/wwwroot/js/src/datalayer.js``` and replace the first line of code
+Replace the content of the ```insertProduct``` method with
 
 ```js
-class DataLayer {
+insertProduct(product) {
+    return new Swagger({
+        url: this.url,
+        usePromise: true
+    }).then(client => client.Products.createProduct({ product }))
+    .then(data => data.obj);
+}
 ```
 
-with
+Replace the content of the ```updateProduct``` method with
 
 ```js
-export default class {
-``` 
-
-### index.html
-
-We can now change our page to include the bundled file and remove the old code for the vue instance, that is now included in the component.
-
-Open and replace its content with the following code:
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <title></title>
-</head>
-<body>
-    <div id="app"></div>
-    <script src="js/dist/bundle.js"></script>
-</body>
-</html>
+updateProduct(id, product) {
+    return new Swagger({
+        url: this.url,
+        usePromise: true
+    }).then(client => client.Products.updateProduct({ id, product }))
+    .then(data => data.obj);
+}
 ```
 
-### Build the bundle
-
-Open a command prompt and go to the root folder of your JavaScript project, containing your webpack.config file. Type:
-
-```
-webpack
-```
-
-You should see the ````bundle.js``` output file in the ```JavaScriptClient/wwwroot/js/dist``` folder.
-
-If you run the application you should see no difference in behaviour, but our code is now better organizeed and easier to change.
-We can now proceed to use Bootstrap 4 to improve the appearance of the User Interface.
-
-### Bootstrap setup
-
-Although we could of course download Bootstrap and include it in our project, we're going to use the CDN instead.
-
-Open the JavaScriptClient project / wwwroot / index.html
-
-In the ```<head>``` section, add the links to the bootstrap cs:
-
-```html
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
-```
-
-Add the JavaScript plugins, jQuery, and Tether near the end of your page, right before the closing ```</body>``` tag. Be sure to place jQuery and Tether first, as the Bootstrap code depends on them.
-
-```html
-<script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
-```
-
-### Add the meta viewport tag
-
-Bootstrap is developed mobile first, a strategy in which the code is optimized for mobile devices first and then scale up components as necessary using CSS media queries. To ensure proper rendering and touch zooming for all devices, add the responsive viewport meta tag to your ```<head>```
-
-```html
-<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-``` 
-
-Run the Solution by pressing F5, then right click on the JavaScriptClient project and select Debug -> Start a New Instance.
-You should already see a slight improvement in the looks of the page.
-
-### Setting the container
-
-Containers are the most basic layout element in Bootstrap and are required when using the default grid system. We can choose a responsive, fixed-width container (meaning its max-width changes at each breakpoint) or fluid-width (meaning it’s 100% wide all the time).
-
-Let's make our app a fixed-width container by adding the class ```container``` to the App.vue template:
-
-```html
-<div id="app" class="container">
-```
-
-Save, run webpack, refresh the page in the browser. You should see some margin on the left of our content. 
-
-Since Bootstrap is developed to be mobile first, media queries are used to create sensible breakpoints for layouts and interfaces. These breakpoints are mostly based on minimum viewport widths and are used to scale up elements as the viewport changes. Try to resize the width of the broser to see how the margin changes.
-
-### Styling the buttons
-
-Bootstrap includes six predefined button styles, each serving its own semantic purpose. Let's style our buttons.
-
-First, let's add the classes ```btn btn-primary``` to our New Product button on App.vue
-
-```html
-<button class="btn btn-primary" v-on:click="add" v-bind:disabled="isFormInUse">New Product</button>
-```
-
-Second, let's change the buttons in the ```product-item``` child template.
-Open the JavaScriptClient / wwwroot / js / src / ProductItem.vue file.
-Modify the ```<template>``` section as follows:
-
-```html
-<article>
-    {{ prod.id }} - {{prod.name}} - {{prod.description}} - {{prod.price}}
-    <button class="btn btn-secondary" v-on:click="select" v-bind:disabled="buttonsDisabled">Select</button>
-    <button class="btn btn-danger" v-on:click="remove" v-bind:disabled="buttonsDisabled">Delete</button>
-</article>
-```
-
-Third, let's style the buttons on our ```ProductForm.vue``` template.
-
-```html
-<div>
-    <input v-model="product.name" type="text" placeholder="name" />
-    <input v-model="product.description" type="text" placeholder="description" />
-    <input v-model:number="product.price" type="text" placeholder="price" />
-    <button class="btn btn-primary" v-on:click="save">Save</button>
-    <button class="btn btn-secondary" v-on:click="cancel">Cancel</button>
-</div>
-
-```
-
-Save, run webpack, refresh the page in the browser. You should see the buttons with the new style. Also note how the mouse pointer icon changes when they are disabled.  
-
-### Styling our products
-
-We're going to use the new Card component introduced in Bootstrap 4
-
-A card is a flexible and extensible content container. It includes options for headers and footers, a wide variety of content, contextual background colors, and powerful display options.
-
-Cards are built with as little markup and styles as possible, but still manage to deliver a ton of control and customization. Built with flexbox, they offer easy alignment and mix well with other Bootstrap components.
-
-Let's use a basic card with mixed content and a fixed width. Cards have no fixed width to start, so they’ll naturally fill the full width of its parent element. 
-
-Add the ```class="card"``` attribute to the ```article``` tag in the ```<template>``` section of the ```ProductItem.vue``` Component:
-
-```html
-<article class="card">
-    {{ prod.id }} - {{prod.name}} - {{prod.description}} - {{prod.price}}
-    <button class="btn btn-secondary" v-on:click="select" v-bind:disabled="buttonsDisabled">Select</button>
-    <button class="btn btn-danger" v-on:click="remove" v-bind:disabled="buttonsDisabled">Delete</button>
-</article>
-```
-
-Save, run webpack, refresh the page in the browser. You will see a border around each product. Now the buttons fill the card.
-
-The building block of a card is the ```.card-block```. Let's use it to add a padded section within a card. 
-
-Add a ```<div class="card-block">``` to wrap the content of the card.
-
-```html
-<article class="card">
-    <div class="card-block">
-        {{ prod.id }} - {{prod.name}} - {{prod.description}} - {{prod.price}}
-        <button class="btn btn-secondary" v-on:click="select" v-bind:disabled="buttonsDisabled">Select</button>
-        <button class="btn btn-danger" v-on:click="remove" v-bind:disabled="buttonsDisabled">Delete</button>
-    </div>
-</article>
-``` 
-
-Save, run webpack, refresh the page in the browser. There is more space surrounding the content and the buttons are back to a normal size.
-
-### Titles and text
-
-Card titles are used by adding ```.card-title``` to a ```<h*>``` tag. 
-Subtitles are used by adding a ```.card-subtitle``` to a ```<h*>``` tag. 
-If the ```.card-title``` and the ```.card-subtitle``` items are placed in a ```.card-block``` item, the card title and subtitle are aligned nicely.
-
-Let's add some tags and classes to our template to style it nicely.
-
-```html
-<article class="card">
-    <div class="card-block">
-        <h4 class="card-title">{{ prod.id }} - {{prod.name}}</h4>
-        <h6 class="card-subtitle mb-2 text-muted">{{prod.price}}</h6>
-        <p class="card-text">{{prod.description}}</p>
-        <button class="btn btn-secondary" v-on:click="select" v-bind:disabled="buttonsDisabled">Select</button>
-        <button class="btn btn-danger" v-on:click="remove" v-bind:disabled="buttonsDisabled">Delete</button>
-    </div>
-</article>
-```
-
-Save, run webpack, refresh the page in the browser. The content of the block is now aligned nicely.
-
-### Header and footer
-
-Let's add a header and footer within our card by adding two more divs with the classes ```card-header``` and ```card-footer```.
-Let's move the prod.id in the header and the two buttons in the footer.
-
-```html
-<article class="card">
-    <div class="card-header">
-        {{ prod.id }}
-    </div>
-    <div class="card-block">
-        <h4 class="card-title">{{prod.name}}</h4>
-        <h6 class="card-subtitle mb-2 text-muted">{{prod.price}}</h6>
-        <p class="card-text">{{prod.description}}</p>
-    </div>
-    <div class="card-footer">
-        <button class="btn btn-secondary" v-on:click="select" v-bind:disabled="buttonsDisabled">Select</button>
-        <button class="btn btn-danger" v-on:click="remove" v-bind:disabled="buttonsDisabled">Delete</button>
-    </div>
-</article>
-```
-
-Save, run webpack, refresh the page in the browser. Now the id and the buttons are in two separate areas.
-
-### Sizing
-
-Cards assume no specific width to start, so they’ll be 100% wide unless otherwise stated. You can change this as needed with grid classes.
-Bootstrap includes a powerful mobile-first flexbox grid system for building layouts of all shapes and sizes. It’s based on a 12 column layout and has multiple tiers, one for each media query range. You can use it the Bootstrap predefined classes.
-Bootstrap’s grid system uses a series of containers, rows, and columns to layout and align content. It’s built with flexbox and is fully responsive.
-Breaking it down, here’s how it works:
-
-- Containers provide a means to center your site’s contents. Use ```.container``` for fixed width or ```.container-fluid``` for full width.
-- Rows are horizontal groups of columns that ensure your columns are lined up properly. Bootstrap uses the negative margin method on ```.row``` to ensure all your content is aligned properly down the left side.
-- Content should be placed within columns, and only columns may be immediate children of rows.
-- Column classes indicate the number of columns you’d like to use out of the possible 12 per row. So, if you want three equal-width columns, you can use ```.col-md-4```.
-- Column widths are set in percentages, so they’re always fluid and sized relative to their parent element.
-- There are five grid tiers, one for each responsive breakpoint: all breakpoints (extra small), small, medium, large, and extra large.
-- Grid tiers are based on minimum widths, meaning they apply to that one tier and all those above it (e.g., ```.col-md-4``` applies to  medium, large, and extra large devices).
-
-We already have a container (the app). Let's add the  ```class="row"``` to our ```<section>``` wrapping the ```<product-item>``` in the ```App.vue```.
-
-```html
-<section class="row">
-```
-
-Now let's specify how many columns each card should be by wrapping it in a ```<div>``` with a ```class="col-sm-4"``` so that each row will fit 3 products.
-
-```html
-<div class="col-md-4">
-    <article class="card">
-        <div class="card-header">
-            {{ prod.id }}
-        </div>
-        <div class="card-block">
-            <h4 class="card-title">{{prod.name}}</h4>
-            <h6 class="card-subtitle mb-2 text-muted">{{prod.price}}</h6>
-            <p class="card-text">{{prod.description}}</p>
-        </div>
-        <div class="card-footer">
-            <button class="btn btn-secondary" v-on:click="select" v-bind:disabled="buttonsDisabled">Select</button>
-            <button class="btn btn-danger" v-on:click="remove" v-bind:disabled="buttonsDisabled">Delete</button>
-        </div>
-    </article>
-</div>
-```
-
-Save, run webpack, refresh the page in the browser. Try adding some products to see how they span on the page. Also, resize the page to see how the layout changes when the browser reaches the different breakpoints.
-
-### Styling the form
-
-Bootstrap provides several form control styles, layout options, and custom components for creating a wide variety of forms.
-Bootstrap’s form controls expand on the Rebooted form styles with classes. 
-Use these classes to opt into their customized displays for a more consistent rendering across browsers and devices.
-
-Let's change the ```<template>``` section of the ```ProductForm.vue``` child component by adding the ```class="form-control"``` attribute to all the input fields.
-
-```html
-<div>
-    <input class="form-control" v-model="product.name" type="text" placeholder="name" />
-    <input class="form-control" v-model="product.description" type="text" placeholder="description" />
-    <input class="form-control" v-model:number="product.price" type="text" placeholder="price" />
-    <button class="btn btn-primary" v-on:click="save">Save</button>
-    <button class="btn btn-secondary" v-on:click="cancel">Cancel</button>
-</div> 
-```
-
-Save, run webpack, refresh the page in the browser. The controls now have rounded borders and fill the width of the container.
-
-Let's change the ```description``` textbox into a textarea, to give the user the chance to insert a multiline description.
-
-```html
-<div>
-    <input class="form-control" v-model="product.name" type="text" placeholder="name" />
-    <textarea class="form-control" v-model="product.description" placeholder="description"></textarea>
-    <input class="form-control" v-model:number="product.price" type="text" placeholder="price" />
-    <button class="btn btn-primary" v-on:click="save">Save</button>
-    <button class="btn btn-secondary" v-on:click="cancel">Cancel</button>
-</div> 
-```   
-
-Let's add some labels next to each field to make the form more clear.
-
-```html
-<div>
-    <label for="productName">Name</label><input class="form-control" v-model="product.name" type="text" placeholder="name" id="productName"/>
-    <label for="productDescription">Description</label><textarea class="form-control" v-model="product.description" placeholder="description" id="productDescription"></textarea>
-    <label for="productPrice">Price</label><input class="form-control" v-model:number="product.price" type="text" placeholder="price" id="productPrice"/>
-    <button class="btn btn-primary" v-on:click="save">Save</button>
-    <button class="btn btn-secondary" v-on:click="cancel">Cancel</button>
-</div> 
-```
-
-Save, run webpack, refresh the page in the browser. The labels are above each control.
-
-### Change Form Layout
-
-Since Bootstrap applies display: block and width: 100% to almost all form controls, forms will by default stack vertically. Additional classes can be used to vary this layout on a per-form basis.
-
-Form groups
-
-The ```.form-group``` class is the easiest way to add some structure to forms. Its only purpose is to provide margin-bottom around a label and control pairing. As a bonus, since it's a class you can use it with ```<fieldset>```s, ```<div>```s, or nearly any other element.
-
-Let's add form groups to our form.
-
-```html
-<div>
-    <div class="form-group">
-        <label for="productName">Name</label>
-        <input class="form-control" v-model="product.name" type="text" placeholder="name" id="productName"/>
-    </div>
-    <div class="form-group">
-        <label for="productDescription">Description</label>
-        <textarea class="form-control" v-model="product.description" placeholder="description" id="productDescription"></textarea>
-    </div>
-    <div class="form-group">
-        <label for="productPrice">Price</label>
-        <input class="form-control" v-model:number="product.price" type="text" placeholder="price" id="productPrice"/>
-    </div>
-    <button class="btn btn-primary" v-on:click="save">Save</button>
-    <button class="btn btn-secondary" v-on:click="cancel">Cancel</button>
-</div> 
-```
-
-Save, run webpack, refresh the page in the browser. There's now some vertical space between one group and the other.
-
-We can use the ```row``` and ```col-*-*``` grid classes to place each label next to the fields.
-
-```html
-<div>
-    <div class="form-group row">
-        <label for="productName" class="col-sm-2">Name</label>
-        <input class="form-control col-sm-10" v-model="product.name" type="text" placeholder="name" id="productName"/>
-    </div>
-    <div class="form-group row">
-        <label for="productDescription" class="col-sm-2">Description</label>
-        <textarea class="form-control col-sm-10" v-model="product.description" placeholder="description" id="productDescription"></textarea>
-    </div>
-    <div class="form-group row">
-        <label for="productPrice" class="col-sm-2">Price</label>
-        <input class="form-control col-sm-10" v-model:number="product.price" type="text" placeholder="price" id="productPrice"/>
-    </div>
-    <button class="btn btn-primary" v-on:click="save">Save</button>
-    <button class="btn btn-secondary" v-on:click="cancel">Cancel</button>
-</div> 
-```
-
-Save, run webpack, refresh the page in the browser. The labels are now on the left of each field.
-
-We can also transform our form into a card by adding the correct elements and classes.
-
-```html
-<div class="card">
-    <div class="card-block">
-        <div class="form-group row">
-            <label for="productName" class="col-sm-2">Name</label>
-            <input class="form-control col-sm-10" v-model="product.name" type="text" placeholder="name" id="productName"/>
-        </div>
-        <div class="form-group row">
-            <label for="productDescription" class="col-sm-2">Description</label>
-            <textarea class="form-control col-sm-10" v-model="product.description" placeholder="description" id="productDescription"></textarea>
-        </div>
-        <div class="form-group row">
-            <label for="productPrice" class="col-sm-2">Price</label>
-            <input class="form-control col-sm-10" v-model:number="product.price" type="text" placeholder="price" id="productPrice"/>
-        </div>
-    </div>
-    <div class="card-footer">
-        <button class="btn btn-primary" v-on:click="save">Save</button>
-        <button class="btn btn-secondary" v-on:click="cancel">Cancel</button>
-    </div>
-</div> 
-```
-
-Save, run webpack, refresh the page in the browser. There is a slight border around our form and the buttons are in a separate area at the bottom of the form.
-
-### Navigation
-
-The navbar is a wrapper that positions branding, navigation, and other elements in a concise header. It’s easily extensible and, thanks to the Collapse plugin, can easily integrate responsive behaviors.
-
-Here's what you need to know before getting started with the navbar:
-
-- Navbars require a wrapping ```.navbar``` with ```.navbar-toggleable-*``` for responsive collapsing and color scheme classes.
-- Navbars and their contents are fluid by default. Use optional containers to limit their horizontal width.
-- Navbars and their contents are built with flexbox, providing easy alignment options via utility classes.
-- Navbars are responsive by default, but you can easily modify them to change that. Responsive behavior depends on the Collapse JavaScript plugin.
-- Ensure accessibility by using a ```<nav>``` element or, if using a more generic element such as a ```<div>```, add a ```role="navigation"``` to every navbar to explicitly identify it as a landmark region for users of assistive technologies.
-
-Navbars come with built-in support for a handful of sub-components. Choose from the following as needed:
-
-- ```.navbar-brand``` for your company, product, or project name.
-- ```.navbar-nav``` for a full-height and lightweight navigation (including support for dropdowns).
-- ```.navbar-toggler``` for use with our collapse plugin and other navigation toggling behaviors.
-- ```.form-inline``` for any form controls and actions.
-- ```.navbar-text``` for adding vertically centered strings of text.
-- ```.collapse.navbar-collapse``` for grouping and hiding navbar contents by a parent breakpoint.
-
-Let's create a new Sigle Page Vue Component to separate the navigation bar from the App.
-
-In your ```JavaScriptClient/wwwroot/js/src``` folder, create a ```CommandBar.vue``` file and replace its code with the following:
-
-```html
-<template>
-
-</template>
-
-<script>
-    export default {
-
-    }
-</script>
-```
-
-Now move the ```New Product``` button from ```App.vue``` to the ```<template>``` section of ```CommandBar.vue```:
-
-```html
-<template>
-    <button class="btn btn-primary" v-on:click="add" v-bind:disabled="isFormInUse">New Product</button>
-</template>
-```
-
-Now let's wrap our ```New Product``` button into a navigation bar:
-
-```html
-<template>
-    <nav class="navbar navbar-inverse bg-inverse navbar-toggleable-md">
-        <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#commandBar" aria-controls="commandBar" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <a class="navbar-brand" href="#">MarketPlace</a>
-
-        <div class="collapse navbar-collapse" id="commandBar">
-            <div class="form-inline my-2 my-lg-0">
-                <button class="btn btn-primary" v-on:click="add" v-bind:disabled="isFormInUse">New Product</button>
-            </div>
-        </div>
-    </nav>
-</template>
-```
-
-Now let's take care of the communication between the ```CommandBar``` component and the ```App``` component. 
-
-- The ```App``` component has to pass down the ```isFormInUse``` property so that the button can eventually be disabled. We will create a prop for that.
-- The ```CommandBar``` component has to inform the ```App``` whenever the button gets pressed. We will emit an event for that.
-
-Modify the ```<script>``` section as follows:
-
-```html
-<script>
-    export default {
-        props: ['isFormInUse'],
-        methods: {
-            add() {
-                this.$emit('add');
-            }
-        }
-    }
-</script>
-```
-
-Now let's go to the ```App``` component to include the ```CommandBar``` and to bind the property and event.
-Open the ```JavaScriptClient/wwwroot/js/src/App.vue``` file and modify its ```<template>``` section as follows:
-
-```html
-<template>
-    <div id="app" class="container">
-        <command-bar v-on:add="add" v-bind:isFormInUse="isFormInUse"></command-bar>
-        
-        <product-form v-if="isFormInUse" v-bind:product="current" v-on:saving="productSaving" v-on:cancel="cancel"></product-form>
-
-        <section class="row">
-            <product-item v-for="product in products" v-bind:prod="product" v-bind:buttons-disabled="isFormInUse" :key="product.id" v-on:selected="productSelected" v-on:deleting="productDeleting"></product-item>
-        </section>
-    </div>
-</template>
-```
-
-At the beginning of the ```<script>``` section, include an ```import``` for the new ```CommandBar.vue``` as follows:
-
-```html
-<script>
-    import DataLayer from "./datalayer"
-    import ProductForm from './ProductForm.vue'
-    import ProductItem from './ProductItem.vue'  
-    import CommandBar from './CommandBar.vue'  
-    export default {
-        // code that was already here
-
-
-    }
-```
-
-Also add ```CommandBar``` between the ```components``` property of the ```App```:
+Replace the content of the ```deleteProduct``` method with
 
 ```js
-    components: {
-            ProductForm,
-            ProductItem,
-            CommandBar
-    }
+deleteProduct(id) {
+    return new Swagger({
+        url: this.url,
+        usePromise: true
+    }).then(client => client.Products.deleteProduct({ id }))
+    .then(data => data.obj);
+}
 ```
 
-Save, run webpack, refresh the page in the browser. The Button is now in a navigation bar. Note that if you resize the browser, the content of the navbar collapses, a toggle button appears and if you click on it you can see the New Product button slowly sliding down.
+Save ```datalayer.js```.
+Run Webpack by opening a console window on your JavaScript project folder containing webpack.config.js and typing ```webpack```.
+Go back to Visual Studio and run the application by pressing on F5, then right click on the Solution Explorer -> JavaScriptClient and select Debug -> Start New instance.
 
-Our REST Service is poorly documented and we had to build our JavaScript DataLayer knowing all the details of the different http verbs, content types and data structures. We are going to improve that by using Swagger, Swashbuckle and Swagger-Client in the next lab.    
+Verify that the page still works by adding, modifying and deleting products.
+
+As you can see, our DataLayer does not need to know anything about http addresses, verbs, content types and so on. We just work by invoking methods, passing parameters and getting the results. The swagger-client takes care of all the underlying plumbing for us.
+The creation of an eventual C# client (for example a mobile client made with Xamarin or a web site made with an ASP.NET Core MVC Controller) would also be very simple, thanks to the AutoRest code generator.
+
+We did not implement any security yet. Our next lab will start with setup and configure a new project that will act as an Authentication Server. We will then protect the Create operation and we will use the Authentication Server to authenticate the user and have the client gain access to the protected operation. 
 
 # Next steps
 
 ```
 git add .
-git commit -m "student: step 4 complete"
-git checkout step05start
+git commit -m "student: step 5 complete"
+git checkout step06start
 ```

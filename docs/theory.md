@@ -1,50 +1,21 @@
 # The practice will explain everything you need to know, but here are some links to know more
 
-## Single File Components
+## Swagger
 
-[https://vuejs.org/v2/guide/single-file-components.html](https://vuejs.org/v2/guide/single-file-components.html)
+[http://swagger.io/](http://swagger.io/)
 
-## Node Package Manager (NPM)
+## The Swagger Specification
 
-Getting Started guide through section 10: Uninstalling global packages. 
-[https://docs.npmjs.com/getting-started/what-is-npm](https://docs.npmjs.com/getting-started/what-is-npm)
+[http://swagger.io/specification/](http://swagger.io/specification/)
 
-## Babel
+## Swashbuckle.AspNetCore
 
-[https://babeljs.io/docs/learn-es2015/](https://babeljs.io/docs/learn-es2015/)
+[https://github.com/domaindrivendev/Swashbuckle.AspNetCore](https://github.com/domaindrivendev/Swashbuckle.AspNetCore)
 
-## WebPack
+## Swagger Js
 
-[https://webpack.js.org/](https://webpack.js.org/)
+[https://github.com/swagger-api/swagger-js](https://github.com/swagger-api/swagger-js)
 
-## Bootstrap
+## AutoRest
 
-[https://v4-alpha.getbootstrap.com/](https://v4-alpha.getbootstrap.com/)
-
-## Introduction
-
-[https://v4-alpha.getbootstrap.com/getting-started/introduction/](https://v4-alpha.getbootstrap.com/getting-started/introduction/)
-
-## Layout Overview
-
-[https://v4-alpha.getbootstrap.com/layout/overview/](https://v4-alpha.getbootstrap.com/layout/overview/)
-
-## Grid System
-
-[https://v4-alpha.getbootstrap.com/layout/grid/](https://v4-alpha.getbootstrap.com/layout/grid/)
-
-## Buttons
-
-[https://v4-alpha.getbootstrap.com/components/buttons/](https://v4-alpha.getbootstrap.com/components/buttons/)
-
-## Cards
-
-[https://v4-alpha.getbootstrap.com/components/card/](https://v4-alpha.getbootstrap.com/components/card/)
-
-## Forms
-
-[https://v4-alpha.getbootstrap.com/components/forms/](https://v4-alpha.getbootstrap.com/components/forms/)
-
-## Navbars
-
-[https://v4-alpha.getbootstrap.com/components/navbar/](https://v4-alpha.getbootstrap.com/components/navbar/)
+[https://github.com/Azure/autorest](https://github.com/Azure/autorest)
